@@ -31,7 +31,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.Polygon
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TextFields
@@ -84,10 +84,10 @@ fun AddElementPopup(
         AddItem("Circle", Icons.Default.RadioButtonUnchecked, Color(0xFF64B5F6)),
         AddItem("Triangle", Icons.Default.ChangeHistory, Color(0xFFFFD54F)),
         AddItem("Quad", Icons.Default.CropSquare, Color(0xFF81C784)),
-        AddItem("Polygon", Icons.Default.Polygon, Color(0xFFBA68C8)),
+        AddItem("Polygon", Icons.Default.Category, Color(0xFFBA68C8)),
         AddItem("Star", Icons.Default.Star, Color(0xFFFF8A65)),
         AddItem("Multifoil", Icons.Default.Star, Color(0xFFE57373)),
-        AddItem("Irregular Pentagon", Icons.Default.Polygon, Color(0xFFFFB74D)),
+        AddItem("Irregular Pentagon", Icons.Default.Category, Color(0xFFFFB74D)),
         AddItem("Moon", Icons.Default.Favorite, Color(0xFF4FC3F7)),
         AddItem("Arc", Icons.Default.ChangeHistory, Color(0xFFAED581)),
         AddItem("Pie", Icons.Default.RadioButtonUnchecked, Color(0xFFFF8A65)),

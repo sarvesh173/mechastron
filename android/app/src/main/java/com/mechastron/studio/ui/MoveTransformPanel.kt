@@ -22,7 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.hapticfeedback.HapticFeedbackProvider
 
 /**
  * MoveTransformPanel – Move & Transform (fragment_move_transform.xml) control panel.
@@ -131,7 +130,7 @@ fun MoveTransformPanel(
  * ─────────────────────────────────────────────────────────── */
 
 @Composable
-private fun MoveTrackpad(
+private fun RowScope.MoveTrackpad(
     label: String,
     offsetX: Float,
     offsetY: Float,
@@ -139,7 +138,6 @@ private fun MoveTrackpad(
     onMove: (Float, Float) -> Unit
 ) {
     var dragDelta by remember { mutableStateOf(IntOffset.Zero) }
-    val haptic = HapticFeedbackProvider()
 
     Card(
         modifier = Modifier
@@ -260,7 +258,7 @@ private fun SkewSpinnersRow(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NumericField(
+private fun RowScope.NumericField(
     label: String,
     value: Float,
     onValueChange: (Float) -> Unit,
@@ -289,7 +287,8 @@ private fun NumericField(
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = color,
             unfocusedBorderColor = Color(0xFF333842),
-            containerColor = StudioPalette.S9
+            focusedContainerColor = StudioPalette.S9,
+            unfocusedContainerColor = StudioPalette.S9,
         ),
         modifier = Modifier.weight(1f)
     )
@@ -301,7 +300,7 @@ private fun NumericField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SpinnerField(
+private fun RowScope.SpinnerField(
     label: String,
     value: Float,
     onValueChange: (Float) -> Unit,
@@ -309,7 +308,7 @@ private fun SpinnerField(
 ) {
     var textFieldValue by remember { mutableStateOf(value.toString()) }
 
-    Column {
+    Column(modifier = Modifier.weight(1f)) {
         Text(label, fontWeight = FontWeight.Medium, fontSize = 10.sp, color = color)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             // Decrease button
@@ -336,9 +335,10 @@ private fun SpinnerField(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = color,
                     unfocusedBorderColor = Color(0xFF333842),
-                    containerColor = StudioPalette.S9
+                    focusedContainerColor = StudioPalette.S9,
+                    unfocusedContainerColor = StudioPalette.S9,
                 ),
-                modifier = Modifier.weight(1f).height(28.dp)
+                modifier = Modifier.weight(1f)
             )
 
             // Increase button

@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Vrpano
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
@@ -41,6 +41,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+private data class ColorFillTabItem(val label: String, val icon: ImageVector)
 
 /**
  * ColorFillPanel per blueprint section 'Color & Fill' (fragment_color_and_fill.xml).
@@ -83,11 +85,11 @@ fun ColorFillPanel(
 
         /* ── Tab holder: None / Fill / Gradation / Media / Intrinsic ── */
         val tabs = listOf(
-            TabItem("None", Icons.Default.Tune),
-            TabItem("Fill", Icons.Default.ColorLens),
-            TabItem("Gradation", Icons.Default.Gradient),
-            TabItem("Media", Icons.Default.Image),
-            TabItem("Intrinsic", Icons.Default.Vrpano),
+            ColorFillTabItem("None", Icons.Default.Tune),
+            ColorFillTabItem("Fill", Icons.Default.ColorLens),
+            ColorFillTabItem("Gradation", Icons.Default.Gradient),
+            ColorFillTabItem("Media", Icons.Default.Image),
+            ColorFillTabItem("Intrinsic", Icons.Default.Image),
         )
         var selectedTab by remember { mutableIntStateOf(1) } // default to Fill
 

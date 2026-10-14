@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -20,8 +21,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CropSquare
-import androidx.compose.material.icons.filled.Eye
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -68,9 +69,9 @@ fun TimelinePanel(
     playheadMs: Long = 0L,
     modifier: Modifier = Modifier,
     onLayerClick: (String) -> Unit = {},
-    onTrimLeftDrag: (String, Float) -> Unit = {},
-    onTrimRightDrag: (String, Float) -> Unit = {},
-    onVisibilityToggle: (String, Boolean) -> Unit = {},
+    onTrimLeftDrag: (String, Float) -> Unit = { _, _ -> },
+    onTrimRightDrag: (String, Float) -> Unit = { _, _ -> },
+    onVisibilityToggle: (String, Boolean) -> Unit = { _, _ -> },
 ) {
     Column(modifier = modifier.height(280.dp)) {
         // Timeline header
@@ -166,7 +167,11 @@ private fun TimelineRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Layer info column (left 70dp)
-            TimelineLayerInfo(layer = layer, isSelected = isSelected)
+            TimelineLayerInfo(
+                layer = layer,
+                isSelected = isSelected,
+                onVisibilityToggle = onVisibilityToggle,
+            )
 
             // Element frame (gradient body)
             Box(
@@ -210,6 +215,7 @@ private fun TimelineRow(
 private fun TimelineLayerInfo(
     layer: TimelineLayer,
     isSelected: Boolean,
+    onVisibilityToggle: (String, Boolean) -> Unit = { _, _ -> },
 ) {
     Box(
         modifier = Modifier
@@ -249,7 +255,7 @@ private fun TimelineLayerInfo(
                 modifier = Modifier.size(16.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Default.Eye,
+                    imageVector = Icons.Default.Visibility,
                     contentDescription = "Toggle visibility",
                     tint = StudioPalette.TextDim,
                     modifier = Modifier.size(14.dp),

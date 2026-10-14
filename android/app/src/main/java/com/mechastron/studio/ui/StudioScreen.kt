@@ -1,6 +1,7 @@
 package com.mechastron.studio.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,9 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FilterCenterFocus
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Pixels
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.Icon
@@ -175,27 +176,17 @@ fun StudioScreen() {
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = 24.dp)
-                .size(73.dp),
+                .size(73.dp)
+                .background(StudioPalette.Y1, RoundedCornerShape(28.dp))
+                .clickable { showAddElementPopup = true },
+            contentAlignment = Alignment.Center,
         ) {
-            IconButton(
-                onClick = { showAddElementPopup = true },
-                modifier = Modifier.fillMaxSize(),
-                shape = RoundedCornerShape(28.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(StudioPalette.Y1, RoundedCornerShape(28.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        "Add Element",
-                        tint = Color.Black,
-                        modifier = Modifier.size(32.dp),
-                    )
-                }
-            }
+            Icon(
+                Icons.Default.Add,
+                "Add Element",
+                tint = Color.Black,
+                modifier = Modifier.size(32.dp),
+            )
         }
 
         // 9. Add popup — 251dp bottom panel
@@ -265,7 +256,7 @@ private fun ViewmodeHolder() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
     ) {
-        ViewmodeIcon(Icons.Default.Pixels, "Pixel Mode")
+        ViewmodeIcon(Icons.Default.FilterCenterFocus, "Pixel Mode")
         ViewmodeIcon(Icons.Default.GridOn, "Grid Mode")
         ViewmodeIcon(Icons.Default.RadioButtonUnchecked, "Solo Mode")
         ViewmodeIcon(Icons.Default.CameraAlt, "Camera Mode")

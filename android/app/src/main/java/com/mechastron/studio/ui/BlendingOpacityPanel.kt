@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,9 +51,9 @@ fun BlendingOpacityPanel(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            items(BLEND_MODE_GROUPS) { group ->
+            BLEND_MODE_GROUPS.forEach { group ->
                 // Category header
-                item(key = "header-${group.name}") {
+                item(key = "header-${group.name}", span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         text = group.name,
                         style = MaterialTheme.typography.labelSmall.copy(
