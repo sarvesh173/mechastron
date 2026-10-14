@@ -266,7 +266,7 @@ fun effectNameFromXml(xml: String): String? =
  * the grant actually resolves.
  */
 fun readEffectXml(context: Context, uri: Uri): String? = try {
-    context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+    context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
 } catch (e: IOException) {
     null
 } catch (e: SecurityException) {
