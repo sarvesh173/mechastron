@@ -6,6 +6,11 @@ description = "Mechastron: High-performance clean-room motion graphics engine & 
 license = "MIT"
 authors = ["Sarvesh <sarvesh173>", "Alya <alisa@kujou.ai>"]
 
+[lib]
+name = "mechastron"
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 quick-xml = { version = "0.37", features = ["serialize"] }

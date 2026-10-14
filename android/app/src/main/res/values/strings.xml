@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mechastron Studio</string>
+    <string name="viewport_label">4K Viewport</string>
+    <string name="timeline_label">Timeline</string>
+    <string name="layer_panel_label">Layers</string>
+</resources>
