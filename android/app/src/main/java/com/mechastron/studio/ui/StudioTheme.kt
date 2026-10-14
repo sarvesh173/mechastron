@@ -35,6 +35,18 @@ object StudioPalette {
     val TextTrack = Color(0xFFFFD600)          // Yellow
     val AudioTrack = Color(0xFFE040FB)         // Magenta
     val VuMeter = Color(0xFF00FFA8)            // Green VU meter
+
+    // Legacy token aliases mapped onto the reference palette
+    val ViewportBackdrop = CanvasMatte          // A10 viewport matte
+    val TrackBackdrop = SurfaceRaised           // S9 timeline lanes
+    val TickLine = Color(0x33FFFFFF)            // W1_a20 tick marks
+    val PlayedRegion = Color(0x3300FFA8)        // Y1 @20% played span
+    val ActiveBand = Color(0x1A00FFA8)          // Y1 @10% active band
+    val MarkerGuide = Color(0x3300FFA8)         // Keyframe glow guide
+    val SolidFill = ButtonBg                    // S8 solid shape fill
+    val PlaceholderFill = Color(0x3300FFA8)     // Mint placeholder asset
+    val PlaceholderStroke = Color(0x8800FFA8)   // Mint placeholder border
+    val Warning = Color(0xFFFFB020)             // Amber warnings
 }
 
 private val DarkColorScheme = darkColorScheme(
