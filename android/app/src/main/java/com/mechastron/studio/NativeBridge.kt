@@ -92,6 +92,12 @@ object NativeBridge {
         outputPath: String,
     ): String
 
+    private external fun applyEffectPreset(
+        projectXml: String,
+        layerId: String,
+        effectXml: String,
+    ): String
+
     fun renderFrame(
         project: SceneProject,
         timeMs: Long,
@@ -143,6 +149,29 @@ object NativeBridge {
             val status = exportPackage(ProjectCodec.serialize(project), assetsDir, outputPath)
             if (status.isBlank() || status.startsWith("ERR")) BridgeResult.Failed(status.ifBlank { "export failed" })
             else BridgeResult.Ok(outputPath)
+        } catch (t: Throwable) {
+            BridgeResult.Failed(t.message ?: t.javaClass.simpleName)
+        }
+    }
+
+    /**
+     * Applies a preset snippet to [layerId] and returns the rewritten project.
+     *
+     * The native engine owns effect semantics; this only marshals. Validation of
+     * the snippet happens natively, so a malformed file surfaces as a [BridgeResult.Failed]
+     * carrying the parser's own message rather than a Kotlin-side guess.
+     */
+    fun applyEffectPresetTo(
+        project: SceneProject,
+        layerId: String,
+        effectXml: String,
+    ): BridgeResult<SceneProject> {
+        if (!isAvailable) return BridgeResult.Unavailable(unavailableReason ?: "native engine unavailable")
+        if (project.layerById(layerId) == null) return BridgeResult.Failed("layer '$layerId' not in project")
+        if (effectXml.isBlank()) return BridgeResult.Failed("effect snippet is empty")
+        return try {
+            val updatedXml = applyEffectPreset(ProjectCodec.serialize(project), layerId, effectXml)
+            BridgeResult.Ok(ProjectCodec.deserialize(updatedXml))
         } catch (t: Throwable) {
             BridgeResult.Failed(t.message ?: t.javaClass.simpleName)
         }

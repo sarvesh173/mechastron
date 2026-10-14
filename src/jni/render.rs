@@ -1,11 +1,20 @@
-//! Frame composition helpers shared by the JNI entry points.
+//! Frame composition helpers and effect-preset application shared by the JNI
+//! entry points.
 //!
 //! The scratch surface is process-global and mutex-guarded so concurrent
 //! callers never reallocate the 33 MB block and never receive two mutable
 //! views of it at once. Callers that need to observe a result *and* the pixels
 //! it produced must do both inside a single [`with_surface`] closure.
+//!
+//! This module also owns [`Java_com_mechastron_studio_NativeBridge_nativeApplyEffectPreset`],
+//! which is a layer mutation rather than a frame mutation. It lives beside the
+//! other composition helpers because it is the entry point that shares their
+//! "apply to a layer, return the rewritten project" contract, and both are
+//! covered by the null-`env` contract tests in `jni/tests.rs`.
 
-use crate::jni::abi::JInt;
+use crate::codec::MechastronXmlCodec;
+use crate::effect_preset::{apply_preset_to_project, parse_preset};
+use crate::jni::abi::{arg_string, new_java_string, throw, JClass, JInt, JString, JniEnv};
 use crate::model::Layer;
 use crate::render_4k::{FrameBuffer4K, Rgba, BYTES_PER_PIXEL, ROW_BYTES};
 use std::sync::Mutex;
@@ -95,6 +104,86 @@ pub fn layer_opacity_at(layer: &Layer, time_ms: i64) -> f32 {
         .opacity
         .get_value_at(time_ms)
         .clamp(0.0, 1.0)
+}
+
+/// Parses `effect_xml` and applies it to one layer, returning the updated
+/// project XML or a human-readable error.
+///
+/// Shared by the two JNI spellings below; returns `Err` with the message the
+/// Kotlin side should surface rather than throwing, so both bindings report
+/// failures identically.
+fn apply_preset(project_xml: &str, layer_id: &str, effect_xml: &str) -> Result<String, String> {
+    let mut project = MechastronXmlCodec::deserialize(project_xml)
+        .map_err(|e| format!("applyEffectPreset received malformed project XML: {e}"))?;
+    let preset = parse_preset(effect_xml)
+        .map_err(|e| format!("applyEffectPreset could not read the effect snippet: {e}"))?;
+    apply_preset_to_project(&mut project, layer_id, &preset)?;
+    Ok(MechastronXmlCodec::serialize(&project))
+}
+
+/// Applies an imported or built-in effect preset to a layer and returns the
+/// updated project XML, or a null string on failure.
+///
+/// Only `layer.effects` changes: media assets, timing, parenting and every
+/// transform track round-trip through the codec untouched.
+///
+/// # Safety
+///
+/// Called by the JVM with a live `JNIEnv*` and `jclass`. Every argument is
+/// null-checked before use; a null reference is reported as an error code
+/// (or a null return) rather than dereferenced.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_mechastron_studio_NativeBridge_nativeApplyEffectPreset(
+    env: *mut JniEnv,
+    _class: JClass,
+    project_xml: JString,
+    layer_id: JString,
+    effect_xml: JString,
+) -> JString {
+    let (Some(xml), Some(layer), Some(effect)) = (
+        arg_string(env, project_xml),
+        arg_string(env, layer_id),
+        arg_string(env, effect_xml),
+    ) else {
+        throw(env, "applyEffectPreset could not read its arguments");
+        return std::ptr::null_mut();
+    };
+
+    match apply_preset(&xml, &layer, &effect) {
+        Ok(updated) => new_java_string(env, &updated),
+        Err(message) => {
+            throw(env, &message);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// Binding alias for `NativeBridge.applyEffectPreset`.
+///
+/// The JVM resolves externals by exact name and `NativeBridge.kt` declares its
+/// members without a `native` prefix, so both spellings must be exported. See
+/// the module docs in `jni/mod.rs`.
+///
+/// # Safety
+///
+/// Called by the JVM with a live `JNIEnv*` and `jclass`. Every argument is
+/// null-checked before use; a null reference is reported as an error code
+/// (or a null return) rather than dereferenced.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_mechastron_studio_NativeBridge_applyEffectPreset(
+    env: *mut JniEnv,
+    class: JClass,
+    project_xml: JString,
+    layer_id: JString,
+    effect_xml: JString,
+) -> JString {
+    Java_com_mechastron_studio_NativeBridge_nativeApplyEffectPreset(
+        env,
+        class,
+        project_xml,
+        layer_id,
+        effect_xml,
+    )
 }
 
 #[cfg(test)]
@@ -192,5 +281,72 @@ mod tests {
             with_surface(|fb| blit_layer(fb, &hidden, 0, 0, 0, 3840, 2160)).unwrap(),
             0
         );
+    }
+
+    const PRESET_XML: &str = "<effect id=\"glow\" name=\"Glow\" version=\"1.0\" type=\"glow\">\
+        <property name=\"radius\" value=\"12\"/></effect>";
+
+    fn project_xml() -> String {
+        let mut project = crate::model::SceneProject::new("Bridge", 1080, 1920, 60, 2000);
+        let mut layer = Layer::new_image("hero", "Hero", "assets/hero.png", 2000);
+        layer
+            .transform
+            .pos_x
+            .add_keyframe(0, 0.0, CubicBezier::LINEAR);
+        layer
+            .transform
+            .pos_x
+            .add_keyframe(800, 640.0, CubicBezier::LINEAR);
+        project.add_layer(layer);
+        MechastronXmlCodec::serialize(&project)
+    }
+
+    #[test]
+    fn test_apply_preset_adds_effect_without_disturbing_the_layer() {
+        let updated = apply_preset(&project_xml(), "hero", PRESET_XML).unwrap();
+        let reparsed = MechastronXmlCodec::deserialize(&updated).unwrap();
+        let layer = &reparsed.layers[0];
+
+        assert_eq!(layer.effects.len(), 1);
+        assert_eq!(layer.effects[0].effect_id, "glow");
+        assert_eq!(layer.effects[0].parameters["radius"].default_value, 12.0);
+        // The guarantee, asserted through the same path the JVM takes.
+        assert_eq!(layer.asset_ref.as_deref(), Some("assets/hero.png"));
+        assert_eq!(layer.transform.pos_x.keyframes.len(), 2);
+        assert_eq!(layer.transform.pos_x.keyframes[1].value, 640.0);
+    }
+
+    #[test]
+    fn test_apply_preset_reports_bad_layer_and_bad_snippet() {
+        let unknown = apply_preset(&project_xml(), "ghost", PRESET_XML).unwrap_err();
+        assert_eq!(unknown, "layer 'ghost' not found in project");
+
+        let bad_snippet =
+            apply_preset(&project_xml(), "hero", "<effect name=\"NoId\"/>").unwrap_err();
+        assert!(
+            bad_snippet.contains("could not read the effect snippet"),
+            "got: {bad_snippet}"
+        );
+
+        // Project XML that yields no layers fails on the lookup, not silently.
+        let empty = apply_preset("<mechastron_project/>", "hero", PRESET_XML).unwrap_err();
+        assert_eq!(empty, "layer 'hero' not found in project");
+    }
+
+    #[test]
+    fn test_apply_effect_preset_entry_points_reject_a_null_env() {
+        let env = std::ptr::null_mut();
+        let null = std::ptr::null_mut();
+        assert!(unsafe {
+            Java_com_mechastron_studio_NativeBridge_nativeApplyEffectPreset(
+                env, null, null, null, null,
+            )
+        }
+        .is_null());
+        // The alias must not diverge from the prefixed entry point.
+        assert!(unsafe {
+            Java_com_mechastron_studio_NativeBridge_applyEffectPreset(env, null, null, null, null)
+        }
+        .is_null());
     }
 }

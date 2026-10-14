@@ -278,14 +278,16 @@ fn parse_track(chunk: &str, track_name: &str) -> Option<FloatKeyframeTrack> {
     Some(track)
 }
 
-fn extract_attr(haystack: &str, attr: &str) -> Option<String> {
+/// Reads a double-quoted attribute value out of an XML fragment.
+pub(crate) fn extract_attr(haystack: &str, attr: &str) -> Option<String> {
     let key = format!("{attr}=\"");
     let start = haystack.find(&key)? + key.len();
     let end = haystack[start..].find('"')? + start;
     Some(haystack[start..end].to_string())
 }
 
-fn escape_xml(s: &str) -> String {
+/// Escapes the five XML predefined entities.
+pub(crate) fn escape_xml(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")

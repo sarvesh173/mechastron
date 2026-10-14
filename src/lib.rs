@@ -4,6 +4,7 @@
 pub mod asset_swap;
 pub mod codec;
 pub mod easing;
+pub mod effect_preset;
 pub mod html_export;
 pub mod jni;
 pub mod keyframe;
@@ -14,6 +15,10 @@ pub mod render_4k;
 pub use asset_swap::AssetReplacementEngine;
 pub use codec::MechastronXmlCodec;
 pub use easing::CubicBezier;
+pub use effect_preset::{
+    apply_preset_to_layer, apply_preset_to_project, apply_preset_xml_to_layer, parse_preset,
+    EffectPreset, EffectType,
+};
 pub use html_export::StandaloneHtmlExporter;
 pub use jni::{FRAME_BYTES, IS_JNI_AVAILABLE};
 pub use keyframe::{FloatKeyframeTrack, Keyframe};

@@ -54,6 +54,7 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
     var selectedLayerId by remember { mutableStateOf<String?>(initialProject.layers.lastOrNull()?.id) }
     var statusLine by remember { mutableStateOf("Ready · ${NativeBridge.unavailableReason ?: "native engine linked"}") }
     var pendingSwapLayerId by remember { mutableStateOf<String?>(null) }
+    var isEffectSheetOpen by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -81,6 +82,42 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
                 is BridgeResult.Failed ->
                     statusLine = "Swap failed · ${result.reason}"
             }
+        }
+    }
+
+    fun applyEffect(effectXml: String, label: String) {
+        val layerId = selectedLayerId
+        if (layerId == null) {
+            statusLine = "Select a layer before applying an effect"
+            return
+        }
+        scope.launch {
+            statusLine = when (val result = NativeBridge.applyEffectPresetTo(project, layerId, effectXml)) {
+                is BridgeResult.Ok -> {
+                    project = result.value
+                    "Applied '$label' to '$layerId'"
+                }
+                is BridgeResult.Unavailable ->
+                    "Effect engine unavailable · ${result.reason}"
+                is BridgeResult.Failed ->
+                    "Effect failed · ${result.reason}"
+            }
+        }
+    }
+
+    // Registered at the screen level rather than inside the sheet: launching an
+    // external picker can tear the sheet down, and the result must still land.
+    val importEffectXml = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val xml = withContext(Dispatchers.IO) { readEffectXml(context, uri) }
+            if (xml == null) {
+                statusLine = "Could not read the selected file"
+                return@launch
+            }
+            applyEffect(xml, effectNameFromXml(xml) ?: "imported effect")
         }
     }
 
@@ -168,7 +205,23 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
                 selectedLayerId = id
                 playheadMs = project.layerById(id)?.startTimeMs ?: playheadMs
             },
+            onOpenEffects = { isEffectSheetOpen = true },
         )
+
+        if (isEffectSheetOpen) {
+            EffectPickerSheet(
+                selectedLayerId = selectedLayerId,
+                onApplyPreset = { preset ->
+                    isEffectSheetOpen = false
+                    applyEffect(preset.xml, preset.name)
+                },
+                onImportXml = {
+                    isEffectSheetOpen = false
+                    importEffectXml.launch(EFFECT_XML_MIME_TYPES)
+                },
+                onDismiss = { isEffectSheetOpen = false },
+            )
+        }
     }
 }
 
@@ -230,14 +283,36 @@ private fun LayerPanel(
     project: SceneProject,
     selectedLayerId: String?,
     onSelect: (String) -> Unit,
+    onOpenEffects: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "Layers",
-            style = MaterialTheme.typography.labelMedium,
-            color = StudioPalette.TextDim,
-            modifier = Modifier.padding(bottom = 4.dp),
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Layers",
+                style = MaterialTheme.typography.labelMedium,
+                color = StudioPalette.TextDim,
+            )
+            Button(
+                onClick = onOpenEffects,
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = StudioPalette.SurfaceRaised,
+                    contentColor = StudioPalette.TextPrimary,
+                ),
+            ) {
+                val count = project.layerById(selectedLayerId ?: "")?.effectCount ?: 0
+                Text(
+                    text = if (count > 0) "Effects · $count" else "Effects",
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()

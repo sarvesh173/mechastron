@@ -147,8 +147,19 @@ data class Layer(
     val parentLayerId: String?,
     val assetRef: String?,
     val transform: Transform = Transform(),
-    val effectCount: Int = 0,
+    /**
+     * Applied effects, each held verbatim as its `<effect>…</effect>` block.
+     *
+     * Effect semantics live in the native engine, so the Kotlin side carries the
+     * XML opaquely rather than modelling parameters it cannot evaluate. Keeping
+     * the raw block is what makes [ProjectCodec] round-trip lossless: an effect
+     * applied natively survives every later serialise/deserialise cycle instead of
+     * being dropped on the next render, swap or export.
+     */
+    val effects: List<String> = emptyList(),
 ) {
+    val effectCount: Int get() = effects.size
+
     fun isActiveAt(timeMs: Long): Boolean = timeMs in startTimeMs..endTimeMs
 
     fun evaluate(timeMs: Long): EvaluatedTransform = EvaluatedTransform(

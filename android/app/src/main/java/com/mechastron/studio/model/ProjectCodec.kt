@@ -68,6 +68,20 @@ private fun parseTransform(chunk: String): Transform {
     )
 }
 
+/**
+ * Extracts every `<effect>…</effect>` block from a layer, verbatim.
+ *
+ * Truncated blocks (no closing tag) are skipped rather than half-carried, so a
+ * damaged project cannot smuggle malformed XML into the next native call.
+ */
+private fun parseEffects(chunk: String): List<String> =
+    chunk.split("<effect ")
+        .drop(1)
+        .mapNotNull { raw ->
+            val close = raw.indexOf("</effect>")
+            if (close < 0) null else "<effect " + raw.substring(0, close + "</effect>".length)
+        }
+
 private fun parseLayers(xml: String, durationMs: Long): List<Layer> =
     xml.split("<layer ")
         .drop(1)
@@ -83,7 +97,7 @@ private fun parseLayers(xml: String, durationMs: Long): List<Layer> =
                 parentLayerId = chunk.attr("parent"),
                 assetRef = chunk.attr("asset_ref"),
                 transform = parseTransform(chunk),
-                effectCount = chunk.split("<effect ").size - 1,
+                effects = parseEffects(chunk),
             )
         }
 
@@ -121,7 +135,13 @@ object ProjectCodec {
             appendTrack("scale_y", layer.transform.scaleY)
             appendTrack("rotation_deg", layer.transform.rotationDeg)
             appendTrack("opacity", layer.transform.opacity)
-            append("    </transform>\n  </layer>\n")
+            append("    </transform>\n")
+            if (layer.effects.isNotEmpty()) {
+                append("    <effects>\n")
+                layer.effects.forEach { append(it.trimEnd()).append('\n') }
+                append("    </effects>\n")
+            }
+            append("  </layer>\n")
         }
         append("</mechastron_project>\n")
     }

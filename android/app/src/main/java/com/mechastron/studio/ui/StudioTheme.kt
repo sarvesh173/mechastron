@@ -22,6 +22,7 @@ object StudioPalette {
     val KeyframeMarker = Color(0xFFFFC857)
     val MarkerGuide = Color(0x33FFC857)
     val ActiveBand = Color(0x1A5B8CFF)
+    val TickLine = Color(0x2B8B8BA3)
 
     val PlaceholderFill = Color(0xFF4F46E5)
     val PlaceholderStroke = Color(0xFF7C74F0)
