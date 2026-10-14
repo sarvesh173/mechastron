@@ -112,7 +112,7 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             StudioTopBar(
-                projectTitle = project.name,
+                projectTitle = project.title,
                 resolutionLabel = "${project.width}x${project.height} · ${project.fps} FPS",
                 onSettingsClick = { showProjectSettingsSheet = true },
                 onUndoClick = { Toast.makeText(context, "Undo", Toast.LENGTH_SHORT).show() },
@@ -179,9 +179,9 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
             TimelineScrubber(
                 project = project,
                 playheadMs = playheadMs,
+                isPlaying = isPlaying,
+                onScrub = { playheadMs = it },
                 selectedLayerId = selectedLayerId,
-                onSeek = { playheadMs = it },
-                onSelectLayer = { selectedLayerId = it },
                 modifier = Modifier.fillMaxWidth(),
             )
 
