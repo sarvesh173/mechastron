@@ -32,12 +32,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.mechastron.studio.BridgeResult
 import com.mechastron.studio.NativeBridge
 import com.mechastron.studio.model.SceneProject
-import com.mechastron.studio.ui.sheets.AddElementSheet
 import com.mechastron.studio.ui.sheets.BlendingSheet
 import com.mechastron.studio.ui.sheets.ColorSheet
 import com.mechastron.studio.ui.sheets.CurveEditorSheet
@@ -58,7 +58,7 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
     var pendingSwapLayerId by remember { mutableStateOf<String?>(null) }
 
     // Bottom Sheet Visibility States
-    var showAddElementSheet by remember { mutableStateOf(false) }
+    var showAddPopup by remember { mutableStateOf(false) }
     var showColorSheet by remember { mutableStateOf(false) }
     var showBlendingSheet by remember { mutableStateOf(false) }
     var showTransformSheet by remember { mutableStateOf(false) }
@@ -114,21 +114,22 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
             StudioTopBar(
                 projectTitle = project.title,
                 resolutionLabel = "${project.width}x${project.height} · ${project.fps} FPS",
+                onBackClick = { Toast.makeText(context, "Projects", Toast.LENGTH_SHORT).show() },
                 onSettingsClick = { showProjectSettingsSheet = true },
-                onUndoClick = { Toast.makeText(context, "Undo", Toast.LENGTH_SHORT).show() },
-                onRedoClick = { Toast.makeText(context, "Redo", Toast.LENGTH_SHORT).show() },
                 onExportClick = { Toast.makeText(context, "Exporting 4K 60FPS Video...", Toast.LENGTH_SHORT).show() },
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddElementSheet = true },
-                containerColor = StudioPalette.Accent,
-                contentColor = StudioPalette.Backdrop,
-                shape = CircleShape,
-                modifier = Modifier.padding(bottom = 70.dp).size(52.dp),
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Element", modifier = Modifier.size(28.dp))
+            if (selectedLayerId == null && !showAddPopup) {
+                FloatingActionButton(
+                    onClick = { showAddPopup = true },
+                    containerColor = StudioPalette.Accent,
+                    contentColor = Color.Black,
+                    shape = CircleShape,
+                    modifier = Modifier.padding(bottom = 12.dp).size(56.dp),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Layer", modifier = Modifier.size(32.dp))
+                }
             }
         },
         containerColor = StudioPalette.Backdrop,
@@ -139,12 +140,12 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
                 .padding(innerPadding)
                 .background(StudioPalette.Backdrop),
         ) {
-            // Viewport Canvas
+            // Viewport Canvas (Centered Preview with Zoom Badge)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                    .background(StudioPalette.Backdrop),
                 contentAlignment = Alignment.Center,
             ) {
                 StudioCanvasView(
@@ -160,22 +161,23 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
                 )
             }
 
-            // Playbar & Transport
+            // Playbar & Transport (Undo/Redo, Prev, Play, Next, Bookmark, Graph, Keyframe, Fullscreen)
             StudioPlaybar(
-                playheadMs = playheadMs,
-                durationMs = project.durationMs,
                 isPlaying = isPlaying,
                 hasKeyframeAtPlayhead = false,
+                onUndoClick = { Toast.makeText(context, "Undo", Toast.LENGTH_SHORT).show() },
+                onRedoClick = { Toast.makeText(context, "Redo", Toast.LENGTH_SHORT).show() },
                 onPlayPauseClick = { isPlaying = !isPlaying },
-                onJumpStartClick = { playheadMs = 0L },
-                onJumpEndClick = { playheadMs = project.durationMs },
-                onPrevKeyframeClick = { playheadMs = (playheadMs - 500L).coerceAtLeast(0L) },
-                onNextKeyframeClick = { playheadMs = (playheadMs + 500L).coerceAtMost(project.durationMs) },
-                onToggleKeyframeClick = { Toast.makeText(context, "Keyframe Diamond Toggled", Toast.LENGTH_SHORT).show() },
+                onPrevFrameClick = { playheadMs = (playheadMs - 500L).coerceAtLeast(0L) },
+                onNextFrameClick = { playheadMs = (playheadMs + 500L).coerceAtMost(project.durationMs) },
+                onCopyPasteMenuClick = { Toast.makeText(context, "Layer Copy/Paste Menu", Toast.LENGTH_SHORT).show() },
+                onBookmarkClick = { Toast.makeText(context, "Timeline Bookmark Added", Toast.LENGTH_SHORT).show() },
                 onOpenGraphClick = { showCurveEditorSheet = true },
+                onToggleKeyframeClick = { Toast.makeText(context, "Keyframe Diamond Toggled", Toast.LENGTH_SHORT).show() },
+                onPreviewModeClick = { Toast.makeText(context, "Fullscreen View Mode", Toast.LENGTH_SHORT).show() },
             )
 
-            // Timeline Scrubber & Layer Tracks
+            // Timeline Scrubber & Multi-track View
             TimelineScrubber(
                 project = project,
                 playheadMs = playheadMs,
@@ -185,34 +187,37 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            // Bottom Inspector Tiles (Color & Fill, Border, Blending, Move & Transform, Edit Points, Effects)
-            StudioBottomToolbar(
-                selectedLayerName = selectedLayerName,
-                onColorAndFillClick = { showColorSheet = true },
-                onBorderAndShadowClick = { showColorSheet = true },
-                onBlendingAndOpacityClick = { showBlendingSheet = true },
-                onMoveAndTransformClick = { showTransformSheet = true },
-                onEditPointsClick = { showTransformSheet = true },
-                onEffectsClick = { showEffectPickerSheet = true },
-                onSplitClick = { Toast.makeText(context, "Split at Playhead", Toast.LENGTH_SHORT).show() },
-                onTrimLeftClick = { Toast.makeText(context, "Trimmed Left", Toast.LENGTH_SHORT).show() },
-                onTrimRightClick = { Toast.makeText(context, "Trimmed Right", Toast.LENGTH_SHORT).show() },
-                onDuplicateClick = { Toast.makeText(context, "Layer Duplicated", Toast.LENGTH_SHORT).show() },
-                onDeleteClick = { Toast.makeText(context, "Layer Deleted", Toast.LENGTH_SHORT).show() },
-            )
+            // Bottom Inspector: Exact Alight Motion 3-Row Element Inspector
+            if (selectedLayerName != null) {
+                StudioElementInspector(
+                    selectedLayerName = selectedLayerName,
+                    onSpeedClick = { Toast.makeText(context, "Layer Speed & Retime", Toast.LENGTH_SHORT).show() },
+                    onTrimLeftClick = { Toast.makeText(context, "Trimmed Left", Toast.LENGTH_SHORT).show() },
+                    onSplitClick = { Toast.makeText(context, "Split Layer at Playhead", Toast.LENGTH_SHORT).show() },
+                    onTrimRightClick = { Toast.makeText(context, "Trimmed Right", Toast.LENGTH_SHORT).show() },
+                    onAudioClick = { Toast.makeText(context, "Audio Volume & Cue", Toast.LENGTH_SHORT).show() },
+                    onColorAndFillClick = { showColorSheet = true },
+                    onBorderAndShadowClick = { showColorSheet = true },
+                    onBlendingAndOpacityClick = { showBlendingSheet = true },
+                    onMoveAndTransformClick = { showTransformSheet = true },
+                    onEditPointsClick = { showTransformSheet = true },
+                    onEffectsClick = { showEffectPickerSheet = true },
+                )
+            }
+
+            // Bottom Add Popup Drawer (when + is tapped)
+            if (showAddPopup) {
+                AddElementPopup(
+                    onDismiss = { showAddPopup = false },
+                    onSelectElement = { category, name ->
+                        Toast.makeText(context, "Added $name ($category)", Toast.LENGTH_SHORT).show()
+                    },
+                )
+            }
         }
     }
 
-    // Modal Bottom Sheets
-    if (showAddElementSheet) {
-        AddElementSheet(
-            onDismiss = { showAddElementSheet = false },
-            onSelectElement = { category, name ->
-                Toast.makeText(context, "Added $name ($category)", Toast.LENGTH_SHORT).show()
-            },
-        )
-    }
-
+    // Modal Bottom Sheets for individual feature inspectors
     if (showColorSheet) {
         ColorSheet(
             layerName = selectedLayerName ?: "Layer",
