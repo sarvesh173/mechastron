@@ -15,7 +15,7 @@
 use crate::codec::MechastronXmlCodec;
 use crate::effect_preset::{apply_preset_to_project, parse_preset};
 use crate::jni::abi::{arg_string, new_java_string, throw, JClass, JInt, JString, JniEnv};
-use crate::model::Layer;
+use crate::model::{Layer, SceneProject};
 use crate::render_4k::{FrameBuffer4K, Rgba, BYTES_PER_PIXEL, ROW_BYTES};
 use std::sync::Mutex;
 
@@ -48,6 +48,29 @@ pub fn layer_raster_origin(layer: &Layer, width: JInt, height: JInt) -> (usize, 
         x.clamp(0.0, (width - 1).max(0) as f32) as usize,
         y.clamp(0.0, (height - 1).max(0) as f32) as usize,
     )
+}
+
+/// Composites every live layer of `project` into `fb` at `time_ms`.
+///
+/// Shared by the plain render entry point and the motion blur accumulator, so
+/// both paths composite from exactly the same keyframe evaluation. The surface
+/// is cleared to opaque black first, which also satisfies the accumulator's
+/// requirement that retained frames be flattened before blending.
+pub fn compose_frame(
+    fb: &mut FrameBuffer4K,
+    project: &SceneProject,
+    time_ms: i64,
+    width: JInt,
+    height: JInt,
+) {
+    fb.clear(Rgba::BLACK);
+    for layer in &project.layers {
+        if !layer_is_live(layer, time_ms) {
+            continue;
+        }
+        let (x, y) = layer_raster_origin(layer, width, height);
+        blit_layer(fb, layer, time_ms, x, y, width, height);
+    }
 }
 
 /// Blits one layer's evaluated transform into `fb`.

@@ -2,7 +2,7 @@
 //!
 //! Four entry points back [`com.mechastron.studio.NativeBridge`]:
 //! `nativeInit`, `nativeRenderFrame4K`, `nativeSwapAsset` and
-//! `nativeExportPackage`.
+//! `nativeExportPackage`. `temporal` adds the motion blur entry point on top.
 //!
 //! **Symbol-name drift.** `NativeBridge.kt` declares its externals as
 //! `renderFrame4K`, `swapAsset` and `exportPackage` — no `native` prefix — and
@@ -11,9 +11,16 @@
 //! raise `UnsatisfiedLinkError`. The three unprefixed aliases at the bottom of
 //! this file forward to the prefixed entry points so both spellings resolve.
 //! If the Kotlin side is ever renamed to match, delete the aliases.
+//!
+//! **Module split.** The frame entry points live here because each one is a
+//! thin marshalling shell around [`crate::codec`], [`crate::package`] and the
+//! shared surface. Composition lives in [`render`], and the motion blur
+//! accumulator lives in [`temporal`] because it owns its own process-global
+//! state — the same split that keeps each file inside the 400-line cap.
 
 pub mod abi;
 pub mod render;
+pub mod temporal;
 
 #[cfg(test)]
 mod tests;
@@ -24,7 +31,7 @@ use crate::package::PackageArchiveManager;
 use crate::render_4k::{Rgba, BUFFER_BYTES};
 use abi::{arg_string, array_len, new_java_string, set_array_region, throw};
 use abi::{JByteArray, JClass, JInt, JLong, JString};
-use render::{blit_layer, layer_is_live, layer_raster_origin, with_surface};
+use render::{compose_frame, with_surface};
 use std::path::Path;
 
 /// Size of the 4K RGBA surface handed to the platform, in bytes.
@@ -36,8 +43,8 @@ pub const IS_JNI_AVAILABLE: bool = cfg!(target_os = "android");
 /// Returned by the render entry point when a frame is refused. The Kotlin side
 /// treats any negative value as "this frame was rejected".
 pub const RENDER_REJECTED: JInt = -1;
-const ERR_BAD_ARGUMENT: JInt = -2;
-const ERR_RUNTIME: JInt = -3;
+pub(crate) const ERR_BAD_ARGUMENT: JInt = -2;
+pub(crate) const ERR_RUNTIME: JInt = -3;
 
 /// Resolves the destination array and copies the surface into it.
 ///
@@ -48,7 +55,7 @@ const ERR_RUNTIME: JInt = -3;
 ///
 /// `env` and `out_rgba` must be live JVM references; both are validated before
 /// any pixel is written.
-unsafe fn emit_frame(
+pub(crate) unsafe fn emit_frame(
     env: *mut abi::JniEnv,
     out_rgba: JByteArray,
     pixels: &[u8],
@@ -137,14 +144,7 @@ pub unsafe extern "system" fn Java_com_mechastron_studio_NativeBridge_nativeRend
     };
 
     let Some(rendered) = with_surface(|fb| {
-        fb.clear(Rgba::BLACK);
-        for layer in &project.layers {
-            if !layer_is_live(layer, time_ms) {
-                continue;
-            }
-            let (x, y) = layer_raster_origin(layer, width, height);
-            blit_layer(fb, layer, time_ms, x, y, width, height);
-        }
+        compose_frame(fb, &project, time_ms, width, height);
         fb.as_bytes().to_vec()
     }) else {
         return ERR_RUNTIME;

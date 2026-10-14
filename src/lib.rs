@@ -3,6 +3,7 @@
 
 pub mod asset_swap;
 pub mod codec;
+pub mod color_grade;
 pub mod easing;
 pub mod effect_preset;
 pub mod html_export;
@@ -11,6 +12,7 @@ pub mod keyframe;
 pub mod model;
 pub mod package;
 pub mod render_4k;
+pub mod temporal_blend;
 
 pub use asset_swap::AssetReplacementEngine;
 pub use codec::MechastronXmlCodec;
@@ -25,3 +27,6 @@ pub use keyframe::{FloatKeyframeTrack, Keyframe};
 pub use model::{AppliedEffect, Layer, LayerType, SceneProject, Transform};
 pub use package::PackageArchiveManager;
 pub use render_4k::{FrameBuffer4K, Rgba, BUFFER_BYTES, HEIGHT_4K, WIDTH_4K};
+pub use temporal_blend::{
+    BlendReport, TemporalBlend, DEFAULT_MOTION_BLUR_SAMPLES, MAX_MOTION_BLUR_SAMPLES,
+};

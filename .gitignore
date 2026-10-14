@@ -1,3 +1,36 @@
+# Build artifacts
 target/
 **/*.rs.bk
 *.mepack
+*.apk
+*.aab
+
+# Gradle / Android build outputs
+android/.gradle/
+android/**/build/
+android/local.properties
+android/app/build/
+*.hprof
+
+# Environment and secrets (CRITICAL: Never commit secrets)
+.env*
+*.key
+*.pem
+*.keystore
+*.jks
+secrets/
+
+# Logs and transient runner state
+*.log
+watchman*
+opencode*
+omnirush*
+TASK*
+/tmp/
+
+# Editor and OS noise
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store

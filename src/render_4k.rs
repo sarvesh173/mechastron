@@ -90,6 +90,13 @@ impl FrameBuffer4K {
         &self.pixels
     }
 
+    /// Mutable view of the surface, for passes that accumulate into the pixels
+    /// in place. Borrowed slices of this cover the whole surface, so a caller
+    /// must not hold a sub-slice across another mutable borrow.
+    pub fn as_mut_bytes(&mut self) -> &mut [u8] {
+        &mut self.pixels
+    }
+
     /// Raw pointer handed to the platform for direct submission.
     pub fn as_ptr(&self) -> *const u8 {
         self.pixels.as_ptr()

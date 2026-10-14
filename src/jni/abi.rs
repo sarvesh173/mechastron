@@ -13,6 +13,9 @@ use std::ptr;
 pub type JInt = i32;
 pub type JLong = i64;
 pub type JByte = i8;
+/// `jfloat` is a 32-bit IEEE 754 binary32 on every JNI ABI, so the Rust `f32`
+/// maps onto it without conversion.
+pub type JFloat = f32;
 pub type JString = *mut c_void;
 pub type JObject = *mut c_void;
 pub type JClass = JObject;
