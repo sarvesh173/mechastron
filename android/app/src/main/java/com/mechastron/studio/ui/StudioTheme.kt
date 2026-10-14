@@ -7,39 +7,81 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 /**
- * Exact color palette reverse-engineered from reference motion engine:
- * A11: Deep background (#0C0C0C)
- * A10: Workspace surround (#1C1C1C)
- * A9:  Panel background (#151515)
- * S8:  Panel button fill (#282828)
- * S9:  Surface raised/stroke (#1D1D1D)
- * Y1:  Iconic Neon Mint Accent (#00FFA8)
- * W1:  Primary text (#FFFFFF)
- * D2:  Muted icon/label (#979797)
+ * Design tokens mapped 1:1 from the reference blueprint
+ * (docs/reference-blueprint/UI_BLUEPRINT.md). Dark neutral ramp + mint accent.
  */
 object StudioPalette {
-    val Backdrop = Color(0xFF0C0C0C)           // A11
-    val CanvasMatte = Color(0xFF1C1C1C)        // A10
-    val Surface = Color(0xFF151515)            // A9
-    val ButtonBg = Color(0xFF282828)           // S8
-    val SurfaceRaised = Color(0xFF1D1D1D)      // S9
-    val Stroke = Color(0xFF383838)             // Button border
-    val Accent = Color(0xFF00FFA8)             // Y1 (amAccentColor)
-    val TextPrimary = Color(0xFFFFFFFF)        // W1
-    val TextDim = Color(0xFF979797)            // D2
-    val Playhead = Color(0xFFFF3B30)           // Red scrubber
-    val KeyframeMarker = Color(0xFF00FFA8)     // Mint diamond
-    val Selection = Color(0xFF00FFA8)          // Bounding box
-    val ShapeTrack = Color(0xFF00FFA8)         // Green
-    val MediaTrack = Color(0xFF00E5FF)         // Cyan
+    // Dark neutral ramp (backdrop surfaces)
+    val A1 = Color(0xFF080808)      // deepest overlay
+    val A9 = Color(0xFF151515)      // element inspector panel background
+    val A10 = Color(0xFF1C1C1C)     // main edit screen background
+    val A11 = Color(0xFF0C0C0C)     // pressed-state of panel buttons / preview surround
+    val S8 = Color(0xFF282828)      // panel button normal state
+    val S9 = Color(0xFF1D1D1D)      // timeline lane / value field background
+    val S10 = Color(0xFF262626)     // move & transform panel background
+
+    // Accent
+    val Y1 = Color(0xFF00FFA8)      // primary mint-green accent (select bar, toast, playhead)
+    val AccentGradMain = Color(0xFF69FC97)  // gradient start on timeline elements
+    val AccentGradTint = Color(0xFF5CE5FF)  // gradient end on timeline elements
+    val AccentColorMed = Color(0xFF29E59C)
+    val AccentColorDarker = Color(0xFF52CC91)
+
+    // Timeline element gradient colors (rows 1-6)
+    val ElementGrad1Start = Color(0xFF69FC97)
+    val ElementGrad1End = Color(0xFF5CE5FF)
+    val ElementGrad2Start = Color(0xFF5FEBFF)
+    val ElementGrad2End = Color(0xFF3C8CE7)
+    val ElementGrad3Start = Color(0xFF7466F0)
+    val ElementGrad3End = Color(0xFFCE9FFC)
+    val ElementGrad4Start = Color(0xFFF16586)
+    val ElementGrad4End = Color(0xFFFAD3A5)
+    val ElementGrad5Start = Color(0xFFE6D68C)
+    val ElementGrad5End = Color(0xFFE6F597)
+    val ElementGrad6Start = Color(0xFF52EEE6)
+    val ElementGrad6End = Color(0xFF4EA3D5)
+
+    // Text
+    val W1 = Color(0xFFFFFFFF)      // primary text
+    val W1a30 = Color(0x4DFFFFFF)   // secondary labels (30% white)
+    val W1a20 = Color(0x33FFFFFF)   // tick marks (20% white)
+    val W1a5 = Color(0x0DFFFFFF)    // speed text pill (5% white)
+    val G1 = Color(0xFFEAEAEC)      // tertiary text
+    val D2 = Color(0xFF979797)      // muted icon/label
+
+    // Bl1 (black alpha ramp)
+    val Bl1a10 = Color(0x19000000)
+    val Bl1a20 = Color(0x33000000)
+    val Bl1a50 = Color(0x80000000)
+
+    // Add popup visuals
+    val AddPopupPanelBg = Color(0x20282828)      // S8 @ 12.5%
+    val AddPopupSideTabBg = Color(0x4C262626)    // S8 @ 30%
+    val AddPopupSideTabBgSel = Color(0xB2212121) // S8 @ 70%
+
+    // Alias tokens used across existing components
+    val Backdrop = A10
+    val CanvasMatte = A10
+    val Surface = A9
+    val ButtonBg = S8
+    val SurfaceRaised = S9
+    val Stroke = Color(0xFF383838)
+    val Accent = Y1
+    val TextPrimary = W1
+    val TextDim = D2
+    val Playhead = Y1
+    val KeyframeMarker = Y1
+    val Selection = Y1
+    val ShapeTrack = ElementGrad1Start
+    val MediaTrack = ElementGrad2Start
     val TextTrack = Color(0xFFFFD600)          // Yellow
     val AudioTrack = Color(0xFFE040FB)         // Magenta
-    val VuMeter = Color(0xFF00FFA8)            // Green VU meter
+    val VuMeter = Y1
 
     // Legacy token aliases mapped onto the reference palette
     val ViewportBackdrop = CanvasMatte          // A10 viewport matte
     val TrackBackdrop = SurfaceRaised           // S9 timeline lanes
-    val TickLine = Color(0x33FFFFFF)            // W1_a20 tick marks
+    val TickLine = W1a20                        // tick marks
     val PlayedRegion = Color(0x3300FFA8)        // Y1 @20% played span
     val ActiveBand = Color(0x1A00FFA8)          // Y1 @10% active band
     val MarkerGuide = Color(0x3300FFA8)         // Keyframe glow guide

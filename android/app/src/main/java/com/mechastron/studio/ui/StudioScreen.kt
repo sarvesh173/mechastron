@@ -1,283 +1,318 @@
 package com.mechastron.studio.ui
 
-import android.content.Context
-import android.net.Uri
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Pixels
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.mechastron.studio.BridgeResult
-import com.mechastron.studio.NativeBridge
-import com.mechastron.studio.model.SceneProject
-import com.mechastron.studio.ui.sheets.BlendingSheet
-import com.mechastron.studio.ui.sheets.ColorSheet
-import com.mechastron.studio.ui.sheets.CurveEditorSheet
-import com.mechastron.studio.ui.sheets.ProjectSettingsSheet
-import com.mechastron.studio.ui.sheets.TransformSheet
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
+
+/**
+ * Assembly of the entire edit screen per the blueprint's
+ * 'Edit Screen Layout Hierarchy' + 'Interaction Map'.
+ *
+ * Vertical stack:
+ *   1. StudioTopBar (42dp)
+ *   2. previewGuide (weight 1f, bg A11) + viewmodeHolder (50dp, bg S9)
+ *   3. StudioPlaybar (46dp)
+ *   4. StudioInfoBar (46dp)
+ *   5. TimelinePanel (280dp)
+ *   6. StudioElementInspector (200dp)
+ *   Overlays: timelineOverflowButton (40x40dp), buttonAdd FAB (73dp),
+ *             AddElementPopup (251dp), modal panels.
+ *
+ * Interaction Map (buttons -> menus, no feature logic):
+ *   buttonAdd (FAB)         -> showAddElementPopup
+ *   buttonColorAndFill      -> showColorFillPanel
+ *   buttonBorderAndShadow   -> showBorderShadowPanel
+ *   buttonBlendingAndOpacity-> showBlendingOpacityPanel
+ *   buttonMoveAndTransform  -> showMoveTransformPanel
+ *   buttonEffects           -> showEffectPanel
+ *   timelineOverflowButton  -> showTimelineOverflow
+ */
+/** Sample timeline layers matching the 6-row gradient cycling of the reference. */
+private val sampleTimelineLayers = listOf(
+    TimelineLayer("l1", "Rectangle", LayerType.SHAPE, 0L, 4000L, hasKeyframes = true, hasMask = false),
+    TimelineLayer("l2", "Circle", LayerType.SHAPE, 500L, 3000L, hasKeyframes = false, hasMask = false),
+    TimelineLayer("l3", "Background", LayerType.MEDIA, 0L, 4000L, hasKeyframes = false, hasMask = true),
+    TimelineLayer("l4", "Text", LayerType.TEXT, 1000L, 2000L, hasKeyframes = true, hasMask = false),
+    TimelineLayer("l5", "Music", LayerType.AUDIO, 0L, 4000L, hasKeyframes = false, hasMask = false),
+    TimelineLayer("l6", "Group", LayerType.SHAPE, 2000L, 1500L, hasKeyframes = false, hasMask = false),
+)
 
 @Composable
-fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
-    var project by remember { mutableStateOf(initialProject) }
-    var playheadMs by remember { mutableLongStateOf(0L) }
-    var isPlaying by remember { mutableStateOf(false) }
-    var selectedLayerId by remember { mutableStateOf<String?>(initialProject.layers.lastOrNull()?.id) }
-    var pendingSwapLayerId by remember { mutableStateOf<String?>(null) }
+fun StudioScreen() {
+    var showAddElementPopup by remember { mutableStateOf(false) }
+    var showColorFillPanel by remember { mutableStateOf(false) }
+    var showBorderShadowPanel by remember { mutableStateOf(false) }
+    var showBlendingOpacityPanel by remember { mutableStateOf(false) }
+    var showEffectPanel by remember { mutableStateOf(false) }
+    var showMoveTransformPanel by remember { mutableStateOf(false) }
+    var showTimelineOverflow by remember { mutableStateOf(false) }
+    var showSelectBar by remember { mutableStateOf(false) }
+    var showSelectBottomBar by remember { mutableStateOf(false) }
 
-    // Bottom Sheet Visibility States
-    var showAddPopup by remember { mutableStateOf(false) }
-    var showColorSheet by remember { mutableStateOf(false) }
-    var showBlendingSheet by remember { mutableStateOf(false) }
-    var showTransformSheet by remember { mutableStateOf(false) }
-    var showCurveEditorSheet by remember { mutableStateOf(false) }
-    var showEffectPickerSheet by remember { mutableStateOf(false) }
-    var showProjectSettingsSheet by remember { mutableStateOf(false) }
-
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    val selectedLayer = project.layerById(selectedLayerId ?: "")
-    val selectedLayerName = selectedLayer?.name
-
-    val pickMedia = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia(),
-    ) { uri ->
-        val layerId = pendingSwapLayerId
-        pendingSwapLayerId = null
-        if (uri == null || layerId == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val assetsDir = File(context.filesDir, "assets")
-            val copied = withContext(Dispatchers.IO) { copyAssetInto(context, uri, assetsDir) }
-            if (copied != null) {
-                when (val result = NativeBridge.swapAssetForLayer(project, layerId, copied.absolutePath, assetsDir.absolutePath)) {
-                    is BridgeResult.Ok -> {
-                        project = result.value
-                        snackbarHostState.showSnackbar("Swapped asset for '$layerId'")
-                    }
-                    else -> snackbarHostState.showSnackbar("Asset swap completed")
-                }
-            }
-        }
-    }
-
-    LaunchedEffect(isPlaying, project.durationMs) {
-        if (!isPlaying) return@LaunchedEffect
-        var previousNanos = withFrameNanos { it }
-        while (isActive) {
-            withFrameNanos { now ->
-                val deltaMs = (now - previousNanos) / 1_000_000L
-                previousNanos = now
-                val next = (playheadMs + deltaMs).coerceIn(0L, project.durationMs)
-                playheadMs = next
-                if (next >= project.durationMs) isPlaying = false
-            }
-        }
-    }
-
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(StudioPalette.A10),
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // 1. NavBar — 42dp
             StudioTopBar(
-                projectTitle = project.title,
-                resolutionLabel = "${project.width}x${project.height} · ${project.fps} FPS",
-                onBackClick = { Toast.makeText(context, "Projects", Toast.LENGTH_SHORT).show() },
-                onSettingsClick = { showProjectSettingsSheet = true },
-                onExportClick = { Toast.makeText(context, "Exporting 4K 60FPS Video...", Toast.LENGTH_SHORT).show() },
+                projectTitle = "Untitled Project",
+                timecode = "00:00.00",
+                onBackClick = {},
+                onSettingsClick = {},
+                onExportClick = {},
+                onGroupSettingsClick = {},
             )
-        },
-        floatingActionButton = {
-            if (selectedLayerId == null && !showAddPopup) {
-                FloatingActionButton(
-                    onClick = { showAddPopup = true },
-                    containerColor = StudioPalette.Accent,
-                    contentColor = Color.Black,
-                    shape = CircleShape,
-                    modifier = Modifier.padding(bottom = 12.dp).size(56.dp),
+
+            // 2. previewGuide (SurfaceView area, bg A11) + viewmodeHolder (50dp, bg S9)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(StudioPalette.A11),
+                )
+                ViewmodeHolder()
+            }
+
+            // 3. Playbar — 46dp
+            StudioPlaybar(
+                isPlaying = false,
+                hasKeyframeAtPlayhead = false,
+                onUndoClick = {},
+                onRedoClick = {},
+                onPlayPauseClick = {},
+                onPrevFrameClick = {},
+                onNextFrameClick = {},
+                onCopyPasteMenuClick = {},
+                onBookmarkClick = {},
+                onPreviewModeClick = {},
+            )
+
+            // 4. InfoBar — 46dp
+            StudioInfoBar()
+
+            // timeline_top_space — 42dp spacer per blueprint
+            Spacer(modifier = Modifier.height(42.dp))
+
+            // 5. Timeline — 280dp
+            TimelinePanel(
+                layers = sampleTimelineLayers,
+                modifier = Modifier.height(280.dp),
+            )
+
+            // 6. Element inspector / Select bars
+            if (showSelectBar) {
+                StudioSelectBar(selectedCount = 0)
+            } else if (showSelectBottomBar) {
+                StudioSelectBottomBar()
+            } else {
+                StudioElementInspector(
+                    selectedLayerName = "Layer 1",
+                    onSpeedClick = {},
+                    onTrimLeftClick = {},
+                    onSplitClick = {},
+                    onTrimRightClick = {},
+                    onAudioClick = {},
+                    onColorAndFillClick = { showColorFillPanel = true },
+                    onBorderAndShadowClick = { showBorderShadowPanel = true },
+                    onBlendingAndOpacityClick = { showBlendingOpacityPanel = true },
+                    onMoveAndTransformClick = { showMoveTransformPanel = true },
+                    onEditPointsClick = { showMoveTransformPanel = true },
+                    onEffectsClick = { showEffectPanel = true },
+                )
+            }
+        }
+
+        // 7. Timeline overflow button (40x40dp), above FAB
+        IconButton(
+            onClick = { showTimelineOverflow = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 112.dp)
+                .size(40.dp),
+        ) {
+            Icon(Icons.Default.MoreVert, "Timeline Options", tint = StudioPalette.W1)
+        }
+
+        // 8. buttonAdd FAB — 73dp, radius 28dp, Y1 background
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 24.dp)
+                .size(73.dp),
+        ) {
+            IconButton(
+                onClick = { showAddElementPopup = true },
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(28.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(StudioPalette.Y1, RoundedCornerShape(28.dp)),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Layer", modifier = Modifier.size(32.dp))
+                    Icon(
+                        Icons.Default.Add,
+                        "Add Element",
+                        tint = Color.Black,
+                        modifier = Modifier.size(32.dp),
+                    )
                 }
             }
-        },
-        containerColor = StudioPalette.Backdrop,
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(StudioPalette.Backdrop),
-        ) {
-            // Viewport Canvas (Centered Preview with Zoom Badge)
+        }
+
+        // 9. Add popup — 251dp bottom panel
+        if (showAddElementPopup) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .background(StudioPalette.Backdrop),
-                contentAlignment = Alignment.Center,
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
             ) {
-                StudioCanvasView(
-                    project = project,
-                    playheadMs = playheadMs,
-                    selectedLayerId = selectedLayerId,
-                    onDoubleTapAssetSwap = { layerId ->
-                        pendingSwapLayerId = layerId
-                        pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
-                    },
-                    onSelectLayer = { selectedLayerId = it },
-                    viewport = CanvasViewport.of(project),
-                )
-            }
-
-            // Playbar & Transport (Undo/Redo, Prev, Play, Next, Bookmark, Graph, Keyframe, Fullscreen)
-            StudioPlaybar(
-                isPlaying = isPlaying,
-                hasKeyframeAtPlayhead = false,
-                onUndoClick = { Toast.makeText(context, "Undo", Toast.LENGTH_SHORT).show() },
-                onRedoClick = { Toast.makeText(context, "Redo", Toast.LENGTH_SHORT).show() },
-                onPlayPauseClick = { isPlaying = !isPlaying },
-                onPrevFrameClick = { playheadMs = (playheadMs - 500L).coerceAtLeast(0L) },
-                onNextFrameClick = { playheadMs = (playheadMs + 500L).coerceAtMost(project.durationMs) },
-                onCopyPasteMenuClick = { Toast.makeText(context, "Layer Copy/Paste Menu", Toast.LENGTH_SHORT).show() },
-                onBookmarkClick = { Toast.makeText(context, "Timeline Bookmark Added", Toast.LENGTH_SHORT).show() },
-                onOpenGraphClick = { showCurveEditorSheet = true },
-                onToggleKeyframeClick = { Toast.makeText(context, "Keyframe Diamond Toggled", Toast.LENGTH_SHORT).show() },
-                onPreviewModeClick = { Toast.makeText(context, "Fullscreen View Mode", Toast.LENGTH_SHORT).show() },
-            )
-
-            // Timeline Scrubber & Multi-track View
-            TimelineScrubber(
-                project = project,
-                playheadMs = playheadMs,
-                isPlaying = isPlaying,
-                onScrub = { playheadMs = it },
-                selectedLayerId = selectedLayerId,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            // Bottom Inspector: Exact Alight Motion 3-Row Element Inspector
-            if (selectedLayerName != null) {
-                StudioElementInspector(
-                    selectedLayerName = selectedLayerName,
-                    onSpeedClick = { Toast.makeText(context, "Layer Speed & Retime", Toast.LENGTH_SHORT).show() },
-                    onTrimLeftClick = { Toast.makeText(context, "Trimmed Left", Toast.LENGTH_SHORT).show() },
-                    onSplitClick = { Toast.makeText(context, "Split Layer at Playhead", Toast.LENGTH_SHORT).show() },
-                    onTrimRightClick = { Toast.makeText(context, "Trimmed Right", Toast.LENGTH_SHORT).show() },
-                    onAudioClick = { Toast.makeText(context, "Audio Volume & Cue", Toast.LENGTH_SHORT).show() },
-                    onColorAndFillClick = { showColorSheet = true },
-                    onBorderAndShadowClick = { showColorSheet = true },
-                    onBlendingAndOpacityClick = { showBlendingSheet = true },
-                    onMoveAndTransformClick = { showTransformSheet = true },
-                    onEditPointsClick = { showTransformSheet = true },
-                    onEffectsClick = { showEffectPickerSheet = true },
-                )
-            }
-
-            // Bottom Add Popup Drawer (when + is tapped)
-            if (showAddPopup) {
                 AddElementPopup(
-                    onDismiss = { showAddPopup = false },
-                    onSelectElement = { category, name ->
-                        Toast.makeText(context, "Added $name ($category)", Toast.LENGTH_SHORT).show()
-                    },
+                    onDismiss = { showAddElementPopup = false },
+                    onSelectElement = { _, _ -> },
                 )
             }
         }
-    }
 
-    // Modal Bottom Sheets for individual feature inspectors
-    if (showColorSheet) {
-        ColorSheet(
-            layerName = selectedLayerName ?: "Layer",
-            onDismiss = { showColorSheet = false },
-        )
-    }
-
-    if (showBlendingSheet) {
-        BlendingSheet(
-            layerName = selectedLayerName ?: "Layer",
-            onDismiss = { showBlendingSheet = false },
-        )
-    }
-
-    if (showTransformSheet) {
-        TransformSheet(
-            layerName = selectedLayerName ?: "Layer",
-            onDismiss = { showTransformSheet = false },
-        )
-    }
-
-    if (showCurveEditorSheet) {
-        CurveEditorSheet(
-            onDismiss = { showCurveEditorSheet = false },
-        )
-    }
-
-    if (showEffectPickerSheet) {
-        EffectPickerSheet(
-            selectedLayerId = selectedLayerId,
-            onApplyPreset = { preset ->
-                val layerId = selectedLayerId
-                if (layerId != null) {
-                    scope.launch {
-                        NativeBridge.applyEffectPresetTo(project, layerId, preset.xml)
-                        snackbarHostState.showSnackbar("Applied '${preset.name}'")
-                    }
-                }
-                showEffectPickerSheet = false
-            },
-            onImportXml = { showEffectPickerSheet = false },
-            onDismiss = { showEffectPickerSheet = false },
-        )
-    }
-
-    if (showProjectSettingsSheet) {
-        ProjectSettingsSheet(
-            currentResolution = "${project.width}x${project.height}",
-            currentFps = project.fps,
-            onDismiss = { showProjectSettingsSheet = false },
-        )
+        // 10. Modal panels (Interaction Map wiring — all params default, modifier full)
+        if (showColorFillPanel) {
+            ColorFillPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+            )
+        }
+        if (showBorderShadowPanel) {
+            BorderShadowPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+            )
+        }
+        if (showBlendingOpacityPanel) {
+            BlendingOpacityPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+            )
+        }
+        if (showEffectPanel) {
+            EffectPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+            )
+        }
+        if (showMoveTransformPanel) {
+            MoveTransformPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+            )
+        }
+        if (showTimelineOverflow) {
+            TimelineOverflowPopup(onDismiss = { showTimelineOverflow = false })
+        }
     }
 }
 
-private fun copyAssetInto(context: Context, uri: Uri, assetsDir: File): File? = runCatching {
-    assetsDir.mkdirs()
-    val ext = if (context.contentResolver.getType(uri)?.contains("video") == true) "mp4" else "png"
-    val dest = File(assetsDir, "media_${System.currentTimeMillis()}.$ext")
-    context.contentResolver.openInputStream(uri)?.use { inp ->
-        dest.outputStream().use { out -> inp.copyTo(out) }
-    } ?: return null
-    dest
-}.getOrNull()
+/** viewmodeHolder — 50dp right rail, bg S9: pixel/grid/solo/camera/zoom buttons. */
+@Composable
+private fun ViewmodeHolder() {
+    Column(
+        modifier = Modifier
+            .width(50.dp)
+            .background(StudioPalette.S9)
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
+    ) {
+        ViewmodeIcon(Icons.Default.Pixels, "Pixel Mode")
+        ViewmodeIcon(Icons.Default.GridOn, "Grid Mode")
+        ViewmodeIcon(Icons.Default.RadioButtonUnchecked, "Solo Mode")
+        ViewmodeIcon(Icons.Default.CameraAlt, "Camera Mode")
+        ViewmodeIcon(Icons.Default.ZoomIn, "Canvas Zoom")
+    }
+}
+
+@Composable
+private fun ViewmodeIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+) {
+    IconButton(onClick = {}, modifier = Modifier.size(40.dp)) {
+        Icon(icon, label, tint = StudioPalette.W1, modifier = Modifier.size(20.dp))
+    }
+}
+
+
+/** Timeline overflow popup — timeline options menu. */
+@Composable
+private fun TimelineOverflowPopup(onDismiss: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .width(220.dp)
+            .background(StudioPalette.S9, RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Timeline Options", color = StudioPalette.W1, modifier = Modifier.weight(1f))
+            IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Default.Close, "Close", tint = StudioPalette.W1a30, modifier = Modifier.size(16.dp))
+            }
+        }
+        TimelineOptionRow("Snap to grid")
+        TimelineOptionRow("Show keyframes")
+        TimelineOptionRow("Timeline settings")
+    }
+}
+
+@Composable
+private fun TimelineOptionRow(label: String) {
+    Text(
+        text = label,
+        color = StudioPalette.W1a30,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+    )
+}

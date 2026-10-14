@@ -31,11 +31,13 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Polygon
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,9 +60,11 @@ import androidx.compose.ui.unit.sp
 
 data class AddItem(val name: String, val icon: ImageVector, val color: Color)
 
+data class TemplateItem(val name: String, val thumbnailColor: Color)
+
 /**
  * Exact replica of Alight Motion's activity_edit_addpopup.xml:
- * Left: elementTabHolder [Shape, Media, Audio, Objects, Templates] + Tab Content Pager
+ * Left: elementTabHolder [Shape, Media, Audio, Object / Element, Template] + Tab Content Pager
  * Right: quickAddBar [Freehand, Vector, Text] + buttonCloseAdd (X)
  */
 @Composable
@@ -70,15 +74,30 @@ fun AddElementPopup(
     modifier: Modifier = Modifier,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Shape", "Media", "Audio", "Objects", "Templates")
+    // Tab labels per blueprint: 'Shape', 'Media', 'Audio', 'Object / Element', 'Template'
+    val tabs = listOf("Shape", "Media", "Audio", "Object / Element", "Template")
 
+    // 19 shapes per blueprint
     val shapes = listOf(
         AddItem("Rectangle", Icons.Default.CropSquare, StudioPalette.Accent),
+        AddItem("Rounded Rectangle", Icons.Default.CropSquare, Color(0xFF64B5F6)),
         AddItem("Circle", Icons.Default.RadioButtonUnchecked, Color(0xFF64B5F6)),
         AddItem("Triangle", Icons.Default.ChangeHistory, Color(0xFFFFD54F)),
+        AddItem("Quad", Icons.Default.CropSquare, Color(0xFF81C784)),
+        AddItem("Polygon", Icons.Default.Polygon, Color(0xFFBA68C8)),
         AddItem("Star", Icons.Default.Star, Color(0xFFFF8A65)),
-        AddItem("Heart", Icons.Default.Favorite, Color(0xFFE57373)),
+        AddItem("Multifoil", Icons.Default.Star, Color(0xFFE57373)),
+        AddItem("Irregular Pentagon", Icons.Default.Polygon, Color(0xFFFFB74D)),
+        AddItem("Moon", Icons.Default.Favorite, Color(0xFF4FC3F7)),
+        AddItem("Arc", Icons.Default.ChangeHistory, Color(0xFFAED581)),
+        AddItem("Pie", Icons.Default.RadioButtonUnchecked, Color(0xFFFF8A65)),
         AddItem("Plus", Icons.Default.Add, Color(0xFF81C784)),
+        AddItem("Teardrop", Icons.Default.Favorite, Color(0xFFE57373)),
+        AddItem("Stamp", Icons.Default.CropSquare, Color(0xFFBA68C8)),
+        AddItem("Arrow", Icons.Default.ChangeHistory, Color(0xFFFFD54F)),
+        AddItem("Callout", Icons.Default.Favorite, Color(0xFF4FC3F7)),
+        AddItem("Line", Icons.Default.CropSquare, Color(0xFF81C784)),
+        AddItem("Wide Line", Icons.Default.CropSquare, Color(0xFFBA68C8)),
     )
 
     val media = listOf(
@@ -96,13 +115,22 @@ fun AddElementPopup(
         AddItem("Empty Group", Icons.Default.Layers, Color(0xFFAED581)),
     )
 
+    // Templates tab: addCompList equivalent — 6 sample template placeholder cards
+    val templates = listOf(
+        TemplateItem("Intro Pack", Color(0xFF69FC97)),
+        TemplateItem("Lower Thirds", Color(0xFF5CE5FF)),
+        TemplateItem("Transitions", Color(0xFF7466F0)),
+        TemplateItem("Titles", Color(0xFFF16586)),
+        TemplateItem("Social Media", Color(0xFFE6D68C)),
+        TemplateItem("Effects Pack", Color(0xFF52EEE6)),
+    )
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(280.dp)
-            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .background(StudioPalette.Surface)
-            .border(1.dp, StudioPalette.Stroke, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+            .height(251.dp)
+            .clip(RoundedCornerShape(topStart = 13.5.dp, topEnd = 13.5.dp))
+            .background(StudioPalette.AddPopupPanelBg)
     ) {
         Row(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
             // Left main section: Tabs + Grid
@@ -114,8 +142,8 @@ fun AddElementPopup(
                 // elementTabHolder: Horizontal tabs
                 ScrollableTabRow(
                     selectedTabIndex = selectedTab,
-                    containerColor = StudioPalette.Surface,
-                    contentColor = StudioPalette.Accent,
+                    containerColor = StudioPalette.AddPopupPanelBg,
+                    contentColor = StudioPalette.TextPrimary,
                     edgePadding = 8.dp,
                 ) {
                     tabs.forEachIndexed { index, title ->
@@ -123,14 +151,39 @@ fun AddElementPopup(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
                             text = {
-                                Text(
-                                    text = title,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
-                                        fontSize = 11.5.sp,
-                                    ),
-                                    color = if (selectedTab == index) StudioPalette.Accent else StudioPalette.TextDim,
-                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = title,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
+                                            fontSize = 11.5.sp,
+                                        ),
+                                        color = if (selectedTab == index) StudioPalette.Accent else StudioPalette.TextDim,
+                                    )
+                                    // NEW badge on Template tab (index 4)
+                                    if (index == 4) {
+                                        Box(
+                                            modifier = Modifier
+                                                .height(14.dp)
+                                                .padding(horizontal = 4.dp)
+                                                .clip(RoundedCornerShape(2.dp))
+                                                .background(StudioPalette.Accent),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text(
+                                                text = "NEW",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 7.sp,
+                                                ),
+                                                color = Color.Black,
+                                            )
+                                        }
+                                    }
+                                }
                             },
                         )
                     }
@@ -143,55 +196,113 @@ fun AddElementPopup(
                     1 -> media
                     2 -> audio
                     3 -> objects
-                    else -> shapes
+                    else -> listOf<AddItem>()
                 }
 
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(items) { item ->
-                        Box(
+                when (selectedTab) {
+                    4 -> {
+                        // Templates tab: addCompList equivalent — grid of template placeholder cards
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
                             modifier = Modifier
-                                .height(72.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(StudioPalette.ButtonBg)
-                                .border(1.dp, StudioPalette.Stroke, RoundedCornerShape(8.dp))
-                                .clickable {
-                                    onSelectElement(tabs[selectedTab], item.name)
-                                    onDismiss()
-                                }
-                                .padding(6.dp),
-                            contentAlignment = Alignment.Center,
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
-                            ) {
-                                Icon(item.icon, item.name, tint = item.color, modifier = Modifier.size(24.dp))
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = item.name,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = StudioPalette.TextPrimary,
-                                    maxLines = 1,
-                                )
+                            items(templates) { template ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(80.dp)
+                                        .background(StudioPalette.ButtonBg)
+                                        .border(1.dp, StudioPalette.Stroke, RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            onSelectElement("Template", template.name)
+                                            onDismiss()
+                                        }
+                                        .padding(8.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        // Thumbnail placeholder
+                                        Box(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(template.thumbnailColor),
+                                        )
+                                        // Title
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            verticalArrangement = Arrangement.Center,
+                                        ) {
+                                            Text(
+                                                text = template.name,
+                                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+                                                color = StudioPalette.TextPrimary,
+                                                maxLines = 1,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else -> {
+                        // Shape, Media, Audio, Object tabs: grid of items
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(3),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            items(items) { item ->
+                                Box(
+                                    modifier = Modifier
+                                        .height(72.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(StudioPalette.ButtonBg)
+                                        .border(1.dp, StudioPalette.Stroke, RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            onSelectElement(tabs[selectedTab], item.name)
+                                            onDismiss()
+                                        }
+                                        .padding(6.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center,
+                                    ) {
+                                        Icon(item.icon, item.name, tint = item.color, modifier = Modifier.size(24.dp))
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            text = item.name,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                            color = StudioPalette.TextPrimary,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // Divider line
+            // Divider line - using side tab background per blueprint
             Box(
                 modifier = Modifier
                     .width(1.dp)
                     .fillMaxHeight()
-                    .background(StudioPalette.Stroke),
+                    .background(StudioPalette.AddPopupSideTabBg),
             )
 
             // Right sidebar: quickAddBar [Freehand, Vector, Text] + buttonCloseAdd (X)
@@ -199,7 +310,7 @@ fun AddElementPopup(
                 modifier = Modifier
                     .width(62.dp)
                     .fillMaxHeight()
-                    .background(StudioPalette.CanvasMatte),
+                    .background(StudioPalette.AddPopupSideTabBg),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween,
             ) {
@@ -250,7 +361,6 @@ fun AddElementPopup(
                         .clip(CircleShape)
                         .background(StudioPalette.ButtonBg)
                         .clickable { onDismiss() },
-                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(Icons.Default.Close, "Close", tint = StudioPalette.TextPrimary, modifier = Modifier.size(20.dp))
                 }

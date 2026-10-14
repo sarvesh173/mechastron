@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Icon
@@ -35,10 +34,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Exact replica of Alight Motion's activity_edit_playbar.xml:
- * Height: 46dp, Background: A10 (#1C1C1C)
- * Level meter at bottom: 2dp (#00FFA8)
- * [Undo] [Redo] [PrevFrame] [Play/Pause] [NextFrame] [CopyPaste] [Bookmark] [Graph] [Keyframe◆] [PreviewMode]
+ * Playbar per blueprint section 'Playbar' (activity_edit_playbar.xml) — 46dp tall
+ *
+ * Layout: [levelMeterView 2dp] + [controls row]
+ * Controls (left to right):
+ *   buttonUndo / buttonRedo / buttonSkipBack / buttonPlay / buttonSkipFwd
+ *   buttonCopyPasteOverflow (with "NEW" badge area)
+ *   buttonBookmark (activated=5% white bg, pressed=6.3% white bg)
+ *   buttonPreviewMode
  */
 @Composable
 fun StudioPlaybar(
@@ -51,8 +54,6 @@ fun StudioPlaybar(
     onNextFrameClick: () -> Unit,
     onCopyPasteMenuClick: () -> Unit,
     onBookmarkClick: () -> Unit,
-    onOpenGraphClick: () -> Unit,
-    onToggleKeyframeClick: () -> Unit,
     onPreviewModeClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -60,9 +61,18 @@ fun StudioPlaybar(
         modifier = modifier
             .fillMaxWidth()
             .height(46.dp)
-            .background(StudioPalette.CanvasMatte),
+            .background(StudioPalette.A10),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
+        // levelMeterView: 2dp audio level meter strip at the top
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(StudioPalette.VuMeter),
+        )
+
+        // Controls row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -72,91 +82,127 @@ fun StudioPlaybar(
         ) {
             // buttonUndo
             IconButton(onClick = onUndoClick, modifier = Modifier.size(34.dp)) {
-                Icon(Icons.AutoMirrored.Filled.Undo, "Undo", tint = StudioPalette.TextPrimary, modifier = Modifier.size(19.dp))
+                Icon(
+                    Icons.AutoMirrored.Filled.Undo,
+                    contentDescription = "Undo",
+                    tint = StudioPalette.W1,
+                    modifier = Modifier.size(19.dp),
+                )
             }
 
             // buttonRedo
             IconButton(onClick = onRedoClick, modifier = Modifier.size(34.dp)) {
-                Icon(Icons.AutoMirrored.Filled.Redo, "Redo", tint = StudioPalette.TextPrimary, modifier = Modifier.size(19.dp))
-            }
-
-            // buttonSkipBack (ic_edit_prevframe)
-            IconButton(onClick = onPrevFrameClick, modifier = Modifier.size(34.dp)) {
-                Icon(Icons.Default.SkipPrevious, "Previous Frame", tint = StudioPalette.TextPrimary, modifier = Modifier.size(20.dp))
-            }
-
-            // buttonPlay (ac_ic_play)
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(StudioPalette.ButtonBg)
-                    .clickable { onPlayPauseClick() },
-                contentAlignment = Alignment.Center,
-            ) {
                 Icon(
-                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = StudioPalette.Accent,
+                    Icons.AutoMirrored.Filled.Redo,
+                    contentDescription = "Redo",
+                    tint = StudioPalette.W1,
+                    modifier = Modifier.size(19.dp),
+                )
+            }
+
+            // buttonSkipBack (prev frame)
+            IconButton(onClick = onPrevFrameClick, modifier = Modifier.size(34.dp)) {
+                Icon(
+                    Icons.Default.SkipPrevious,
+                    contentDescription = "Previous Frame",
+                    tint = StudioPalette.W1,
                     modifier = Modifier.size(20.dp),
                 )
             }
 
-            // buttonSkipFwd (ic_edit_nextframe)
+            // buttonPlay — circular accent button
+            PlayButton(
+                isPlaying = isPlaying,
+                onClick = onPlayPauseClick,
+            )
+
+            // buttonSkipFwd (next frame)
             IconButton(onClick = onNextFrameClick, modifier = Modifier.size(34.dp)) {
-                Icon(Icons.Default.SkipNext, "Next Frame", tint = StudioPalette.TextPrimary, modifier = Modifier.size(20.dp))
-            }
-
-            // buttonCopyPasteOverflow (ic_layer_copy_paste_menu)
-            IconButton(onClick = onCopyPasteMenuClick, modifier = Modifier.size(34.dp)) {
-                Icon(Icons.Default.ContentCopy, "Copy/Paste Menu", tint = StudioPalette.TextDim, modifier = Modifier.size(18.dp))
-            }
-
-            // buttonBookmark (ic_bookmark_add)
-            IconButton(onClick = onBookmarkClick, modifier = Modifier.size(34.dp)) {
-                Icon(Icons.Default.BookmarkBorder, "Bookmark", tint = StudioPalette.TextDim, modifier = Modifier.size(18.dp))
-            }
-
-            // Graph / Easing Curve Editor Button (The iconic curve icon)
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(StudioPalette.ButtonBg)
-                    .clickable { onOpenGraphClick() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Default.ShowChart, "Graph Editor", tint = StudioPalette.Accent, modifier = Modifier.size(16.dp))
-            }
-
-            // Diamond Keyframe Button (+ / - Diamond)
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(if (hasKeyframeAtPlayhead) StudioPalette.Accent else StudioPalette.ButtonBg)
-                    .clickable { onToggleKeyframeClick() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (hasKeyframeAtPlayhead) "◆-" else "◆+",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, fontSize = 10.sp),
-                    color = if (hasKeyframeAtPlayhead) Color.Black else StudioPalette.Accent,
+                Icon(
+                    Icons.Default.SkipNext,
+                    contentDescription = "Next Frame",
+                    tint = StudioPalette.W1,
+                    modifier = Modifier.size(20.dp),
                 )
             }
 
-            // buttonPreviewMode (ic_viewmode_panel_close)
+            // buttonCopyPasteOverflowContainer — with "NEW" badge area
+            CopyPasteButton(onClick = onCopyPasteMenuClick)
+
+            // buttonBookmark — activated = 5% white bg, pressed = 6.3% white bg
+            BookmarkButton(
+                onClick = onBookmarkClick,
+            )
+
+            // buttonPreviewMode
             IconButton(onClick = onPreviewModeClick, modifier = Modifier.size(34.dp)) {
-                Icon(Icons.Default.Fullscreen, "Fullscreen Preview", tint = StudioPalette.TextDim, modifier = Modifier.size(20.dp))
+                Icon(
+                    Icons.Default.Fullscreen,
+                    contentDescription = "Fullscreen Preview",
+                    tint = StudioPalette.D2,
+                    modifier = Modifier.size(20.dp),
+                )
             }
         }
+    }
+}
 
-        // levelMeterView: 2dp audio level meter line at bottom
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(2.dp)
-                .background(StudioPalette.VuMeter),
+@Composable
+private fun PlayButton(
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(StudioPalette.S8)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+            contentDescription = if (isPlaying) "Pause" else "Play",
+            tint = StudioPalette.Y1,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+@Composable
+private fun CopyPasteButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.ContentCopy,
+            contentDescription = "Copy/Paste Menu",
+            tint = StudioPalette.D2,
+            modifier = Modifier.size(18.dp),
+        )
+        // "NEW" badge placeholder — CardView with 4.5dp corner radius, shown when applicable
+        // Actual badge rendering deferred to parent; this button opens the overflow menu
+    }
+}
+
+@Composable
+private fun BookmarkButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        // buttonBookmark uses bg playbar_toggle_button_bg: 4.5dp inset rounded rect
+        // activated = 5% white (#0DFFFFFF), pressed = 6.3% white (#10FFFFFF)
+        Icon(
+            imageVector = Icons.Default.BookmarkBorder,
+            contentDescription = "Bookmark",
+            tint = StudioPalette.D2,
+            modifier = Modifier.size(18.dp),
         )
     }
 }
