@@ -143,15 +143,14 @@ pub unsafe extern "system" fn Java_com_mechastron_studio_NativeBridge_nativeRend
         return ERR_BAD_ARGUMENT;
     };
 
-    let Some(rendered) = with_surface(|fb| {
+    let required = width as usize * height as usize * pixels_per_pixel;
+    let Some(written) = with_surface(|fb| {
         compose_frame(fb, &project, time_ms, width, height);
-        fb.as_bytes().to_vec()
+        emit_frame(env, out_rgba, fb.as_bytes(), required)
     }) else {
         return ERR_RUNTIME;
     };
-
-    let required = width as usize * height as usize * pixels_per_pixel;
-    emit_frame(env, out_rgba, &rendered, required)
+    written
 }
 
 /// Swaps a layer's media file while preserving every keyframe curve and effect,

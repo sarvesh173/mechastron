@@ -244,13 +244,23 @@ private fun rememberNativeFrame(
             frame = null
             return@LaunchedEffect
         }
-        val result = withContext(Dispatchers.Default) {
-            NativeBridge.renderFrame(project, playheadMs, width, height)
+        try {
+            // Render at lightweight quarter preview resolution for mobile display
+            val previewW = 960.coerceAtMost(width)
+            val previewH = ((previewW.toFloat() / width.toFloat()) * height).toInt().coerceAtLeast(1)
+            val result = withContext(Dispatchers.Default) {
+                NativeBridge.renderFrame(project, playheadMs, previewW, previewH)
+            }
+            val rendered = result.valueOrNull() ?: run {
+                frame = null
+                return@LaunchedEffect
+            }
+            val bitmap = Bitmap.createBitmap(rendered.width, rendered.height, Bitmap.Config.ARGB_8888)
+            bitmap.copyPixelsFromBuffer(java.nio.ByteBuffer.wrap(rendered.rgba))
+            frame = bitmap.asImageBitmap()
+        } catch (_: Throwable) {
+            frame = null
         }
-        val rendered = result.valueOrNull() ?: return@LaunchedEffect
-        val bitmap = Bitmap.createBitmap(rendered.width, rendered.height, Bitmap.Config.ARGB_8888)
-        bitmap.copyPixelsFromBuffer(java.nio.ByteBuffer.wrap(rendered.rgba))
-        frame = bitmap.asImageBitmap()
     }
 
     return frame

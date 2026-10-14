@@ -107,9 +107,9 @@ object NativeBridge {
         if (!isAvailable) return BridgeResult.Unavailable(unavailableReason ?: "native engine unavailable")
         val pixelCount = width * height
         if (pixelCount <= 0) return BridgeResult.Failed("invalid raster size ${width}x$height")
-        val buffer = ByteArray(pixelCount * BYTES_PER_PIXEL)
-        val xml = ProjectCodec.serialize(project)
         return try {
+            val buffer = ByteArray(pixelCount * BYTES_PER_PIXEL)
+            val xml = ProjectCodec.serialize(project)
             synchronized(bufferLock) {
                 val written = renderFrame4K(xml, timeMs, width, height, buffer)
                 when {
