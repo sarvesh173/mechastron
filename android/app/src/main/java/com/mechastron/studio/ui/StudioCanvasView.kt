@@ -248,7 +248,8 @@ private fun rememberNativeFrame(
             NativeBridge.renderFrame(project, playheadMs, width, height)
         }
         val rendered = result.valueOrNull() ?: return@LaunchedEffect
-        val bitmap = Bitmap.createBitmap(rendered.rgba, rendered.width, rendered.height, Bitmap.Config.ARGB_8888)
+        val bitmap = Bitmap.createBitmap(rendered.width, rendered.height, Bitmap.Config.ARGB_8888)
+        bitmap.copyPixelsFromBuffer(java.nio.ByteBuffer.wrap(rendered.rgba))
         frame = bitmap.asImageBitmap()
     }
 

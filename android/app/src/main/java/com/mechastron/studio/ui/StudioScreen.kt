@@ -35,7 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.withFrameNanos
+import androidx.compose.runtime.withFrameNanos
 import com.mechastron.studio.BridgeResult
 import com.mechastron.studio.NativeBridge
 import com.mechastron.studio.model.LayerType
