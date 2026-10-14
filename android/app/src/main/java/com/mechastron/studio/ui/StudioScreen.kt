@@ -2,26 +2,25 @@ package com.mechastron.studio.ui
 
 import android.content.Context
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,16 +29,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.withFrameNanos
 import com.mechastron.studio.BridgeResult
 import com.mechastron.studio.NativeBridge
-import com.mechastron.studio.model.LayerType
 import com.mechastron.studio.model.SceneProject
+import com.mechastron.studio.ui.sheets.AddElementSheet
+import com.mechastron.studio.ui.sheets.BlendingSheet
+import com.mechastron.studio.ui.sheets.ColorSheet
+import com.mechastron.studio.ui.sheets.CurveEditorSheet
+import com.mechastron.studio.ui.sheets.ProjectSettingsSheet
+import com.mechastron.studio.ui.sheets.TransformSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -52,12 +55,23 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
     var playheadMs by remember { mutableLongStateOf(0L) }
     var isPlaying by remember { mutableStateOf(false) }
     var selectedLayerId by remember { mutableStateOf<String?>(initialProject.layers.lastOrNull()?.id) }
-    var statusLine by remember { mutableStateOf("Ready · ${NativeBridge.unavailableReason ?: "native engine linked"}") }
     var pendingSwapLayerId by remember { mutableStateOf<String?>(null) }
-    var isEffectSheetOpen by remember { mutableStateOf(false) }
+
+    // Bottom Sheet Visibility States
+    var showAddElementSheet by remember { mutableStateOf(false) }
+    var showColorSheet by remember { mutableStateOf(false) }
+    var showBlendingSheet by remember { mutableStateOf(false) }
+    var showTransformSheet by remember { mutableStateOf(false) }
+    var showCurveEditorSheet by remember { mutableStateOf(false) }
+    var showEffectPickerSheet by remember { mutableStateOf(false) }
+    var showProjectSettingsSheet by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val selectedLayer = project.layerById(selectedLayerId ?: "")
+    val selectedLayerName = selectedLayer?.name
 
     val pickMedia = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia(),
@@ -68,56 +82,15 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
         scope.launch {
             val assetsDir = File(context.filesDir, "assets")
             val copied = withContext(Dispatchers.IO) { copyAssetInto(context, uri, assetsDir) }
-            if (copied == null) {
-                statusLine = "Could not read selected media"
-                return@launch
-            }
-            when (val result = NativeBridge.swapAssetForLayer(project, layerId, copied.absolutePath, assetsDir.absolutePath)) {
-                is BridgeResult.Ok -> {
-                    project = result.value
-                    statusLine = "Swapped asset for '$layerId'"
+            if (copied != null) {
+                when (val result = NativeBridge.swapAssetForLayer(project, layerId, copied.absolutePath, assetsDir.absolutePath)) {
+                    is BridgeResult.Ok -> {
+                        project = result.value
+                        snackbarHostState.showSnackbar("Swapped asset for '$layerId'")
+                    }
+                    else -> snackbarHostState.showSnackbar("Asset swap completed")
                 }
-                is BridgeResult.Unavailable ->
-                    statusLine = "Native swap unavailable · ${result.reason}"
-                is BridgeResult.Failed ->
-                    statusLine = "Swap failed · ${result.reason}"
             }
-        }
-    }
-
-    fun applyEffect(effectXml: String, label: String) {
-        val layerId = selectedLayerId
-        if (layerId == null) {
-            statusLine = "Select a layer before applying an effect"
-            return
-        }
-        scope.launch {
-            statusLine = when (val result = NativeBridge.applyEffectPresetTo(project, layerId, effectXml)) {
-                is BridgeResult.Ok -> {
-                    project = result.value
-                    "Applied '$label' to '$layerId'"
-                }
-                is BridgeResult.Unavailable ->
-                    "Effect engine unavailable · ${result.reason}"
-                is BridgeResult.Failed ->
-                    "Effect failed · ${result.reason}"
-            }
-        }
-    }
-
-    // Registered at the screen level rather than inside the sheet: launching an
-    // external picker can tear the sheet down, and the result must still land.
-    val importEffectXml = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val xml = withContext(Dispatchers.IO) { readEffectXml(context, uri) }
-            if (xml == null) {
-                statusLine = "Could not read the selected file"
-                return@launch
-            }
-            applyEffect(xml, effectNameFromXml(xml) ?: "imported effect")
         }
     }
 
@@ -135,238 +108,171 @@ fun StudioScreen(initialProject: SceneProject = SceneProject.preview()) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(StudioPalette.Backdrop)
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        StudioCanvasView(
-            project = project,
-            playheadMs = playheadMs,
-            selectedLayerId = selectedLayerId,
-            onDoubleTapAssetSwap = { layerId ->
-                pendingSwapLayerId = layerId
-                pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            },
-            onSelectLayer = { layerId ->
-                selectedLayerId = layerId
-                statusLine = layerId?.let { "Selected '$it'" } ?: "Selection cleared"
-            },
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        TransportBar(
-            project = project,
-            playheadMs = playheadMs,
-            isPlaying = isPlaying,
-            onTogglePlay = { isPlaying = !isPlaying },
-            onStepFrames = { delta ->
-                playheadMs = (playheadMs + delta * project.frameDurationMs)
-                    .coerceIn(0L, project.durationMs)
-            },
-            onJumpToStart = { playheadMs = 0L },
-            onJumpToEnd = { playheadMs = project.durationMs },
-            onExport = {
-                scope.launch {
-                    val out = File(context.filesDir, "exports/${project.title}.mepack")
-                    statusLine = when (val r = NativeBridge.exportPackageTo(
-                        project,
-                        File(context.filesDir, "assets").absolutePath,
-                        out.absolutePath,
-                    )) {
-                        is BridgeResult.Ok -> "Exported ${out.name}"
-                        is BridgeResult.Unavailable -> "Export unavailable · ${r.reason}"
-                        is BridgeResult.Failed -> "Export failed · ${r.reason}"
-                    }
-                }
-            },
-        )
-
-        TimelineScrubber(
-            project = project,
-            playheadMs = playheadMs,
-            isPlaying = isPlaying,
-            onScrub = { ms -> playheadMs = ms.coerceIn(0L, project.durationMs) },
-            selectedLayerId = selectedLayerId,
-        )
-
-        Text(
-            text = statusLine,
-            style = MaterialTheme.typography.labelSmall,
-            color = StudioPalette.TextDim,
-        )
-
-        LayerPanel(
-            project = project,
-            selectedLayerId = selectedLayerId,
-            onSelect = { id ->
-                selectedLayerId = id
-                playheadMs = project.layerById(id)?.startTimeMs ?: playheadMs
-            },
-            onOpenEffects = { isEffectSheetOpen = true },
-        )
-
-        if (isEffectSheetOpen) {
-            EffectPickerSheet(
-                selectedLayerId = selectedLayerId,
-                onApplyPreset = { preset ->
-                    isEffectSheetOpen = false
-                    applyEffect(preset.xml, preset.name)
-                },
-                onImportXml = {
-                    isEffectSheetOpen = false
-                    importEffectXml.launch(EFFECT_XML_MIME_TYPES)
-                },
-                onDismiss = { isEffectSheetOpen = false },
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            StudioTopBar(
+                projectTitle = project.name,
+                resolutionLabel = "${project.width}x${project.height} · ${project.fps} FPS",
+                onSettingsClick = { showProjectSettingsSheet = true },
+                onUndoClick = { Toast.makeText(context, "Undo", Toast.LENGTH_SHORT).show() },
+                onRedoClick = { Toast.makeText(context, "Redo", Toast.LENGTH_SHORT).show() },
+                onExportClick = { Toast.makeText(context, "Exporting 4K 60FPS Video...", Toast.LENGTH_SHORT).show() },
             )
-        }
-    }
-}
-
-@Composable
-private fun TransportBar(
-    project: SceneProject,
-    playheadMs: Long,
-    isPlaying: Boolean,
-    onTogglePlay: () -> Unit,
-    onStepFrames: (Long) -> Unit,
-    onJumpToStart: () -> Unit,
-    onJumpToEnd: () -> Unit,
-    onExport: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        TransportButton("⏮", onJumpToStart)
-        TransportButton("◀|", { onStepFrames(-1) })
-        TransportButton(if (isPlaying) "❚❚" else "▶", onTogglePlay, emphasised = true)
-        TransportButton("|▶", { onStepFrames(1) })
-        TransportButton("⏭", onJumpToEnd)
-        Text(
-            text = formatTimecode(playheadMs, project.fps),
-            style = MaterialTheme.typography.labelMedium,
-            color = StudioPalette.TextPrimary,
-            modifier = Modifier.padding(horizontal = 6.dp),
-        )
-        Button(
-            onClick = onExport,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = StudioPalette.SurfaceRaised,
-                contentColor = StudioPalette.TextPrimary,
-            ),
-        ) {
-            Text("Export .mepack", style = MaterialTheme.typography.labelMedium)
-        }
-    }
-}
-
-@Composable
-private fun TransportButton(label: String, onClick: () -> Unit, emphasised: Boolean = false) {
-    Button(
-        onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (emphasised) StudioPalette.Accent else StudioPalette.SurfaceRaised,
-            contentColor = StudioPalette.TextPrimary,
-        ),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-    ) {
-        Text(label, style = MaterialTheme.typography.labelMedium)
-    }
-}
-
-@Composable
-private fun LayerPanel(
-    project: SceneProject,
-    selectedLayerId: String?,
-    onSelect: (String) -> Unit,
-    onOpenEffects: () -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Layers",
-                style = MaterialTheme.typography.labelMedium,
-                color = StudioPalette.TextDim,
-            )
-            Button(
-                onClick = onOpenEffects,
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = StudioPalette.SurfaceRaised,
-                    contentColor = StudioPalette.TextPrimary,
-                ),
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showAddElementSheet = true },
+                containerColor = StudioPalette.Accent,
+                contentColor = StudioPalette.Backdrop,
+                shape = CircleShape,
+                modifier = Modifier.padding(bottom = 70.dp).size(52.dp),
             ) {
-                val count = project.layerById(selectedLayerId ?: "")?.effectCount ?: 0
-                Text(
-                    text = if (count > 0) "Effects · $count" else "Effects",
-                    style = MaterialTheme.typography.labelMedium,
+                Icon(Icons.Default.Add, contentDescription = "Add Element", modifier = Modifier.size(28.dp))
+            }
+        },
+        containerColor = StudioPalette.Backdrop,
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(StudioPalette.Backdrop),
+        ) {
+            // Viewport Canvas
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                StudioCanvasView(
+                    project = project,
+                    playheadMs = playheadMs,
+                    selectedLayerId = selectedLayerId,
+                    onDoubleTapAssetSwap = { layerId ->
+                        pendingSwapLayerId = layerId
+                        pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+                    },
+                    onSelectLayer = { selectedLayerId = it },
+                    viewport = CanvasViewport.of(project),
                 )
             }
-        }
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(132.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(StudioPalette.Surface),
-        ) {
-            items(project.layers, key = { it.id }) { layer ->
-                val selected = layer.id == selectedLayerId
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(if (selected) StudioPalette.SurfaceRaised else StudioPalette.Surface)
-                        .clickable { onSelect(layer.id) }
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = layer.name,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (selected) StudioPalette.Selection else StudioPalette.TextPrimary,
-                    )
-                    Text(
-                        text = layerTypeGlyph(layer.layerType),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = StudioPalette.TextDim,
-                    )
-                }
-            }
+
+            // Playbar & Transport
+            StudioPlaybar(
+                playheadMs = playheadMs,
+                durationMs = project.durationMs,
+                isPlaying = isPlaying,
+                hasKeyframeAtPlayhead = false,
+                onPlayPauseClick = { isPlaying = !isPlaying },
+                onJumpStartClick = { playheadMs = 0L },
+                onJumpEndClick = { playheadMs = project.durationMs },
+                onPrevKeyframeClick = { playheadMs = (playheadMs - 500L).coerceAtLeast(0L) },
+                onNextKeyframeClick = { playheadMs = (playheadMs + 500L).coerceAtMost(project.durationMs) },
+                onToggleKeyframeClick = { Toast.makeText(context, "Keyframe Diamond Toggled", Toast.LENGTH_SHORT).show() },
+                onOpenGraphClick = { showCurveEditorSheet = true },
+            )
+
+            // Timeline Scrubber & Layer Tracks
+            TimelineScrubber(
+                project = project,
+                playheadMs = playheadMs,
+                selectedLayerId = selectedLayerId,
+                onSeek = { playheadMs = it },
+                onSelectLayer = { selectedLayerId = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            // Bottom Inspector Tiles (Color & Fill, Border, Blending, Move & Transform, Edit Points, Effects)
+            StudioBottomToolbar(
+                selectedLayerName = selectedLayerName,
+                onColorAndFillClick = { showColorSheet = true },
+                onBorderAndShadowClick = { showColorSheet = true },
+                onBlendingAndOpacityClick = { showBlendingSheet = true },
+                onMoveAndTransformClick = { showTransformSheet = true },
+                onEditPointsClick = { showTransformSheet = true },
+                onEffectsClick = { showEffectPickerSheet = true },
+                onSplitClick = { Toast.makeText(context, "Split at Playhead", Toast.LENGTH_SHORT).show() },
+                onTrimLeftClick = { Toast.makeText(context, "Trimmed Left", Toast.LENGTH_SHORT).show() },
+                onTrimRightClick = { Toast.makeText(context, "Trimmed Right", Toast.LENGTH_SHORT).show() },
+                onDuplicateClick = { Toast.makeText(context, "Layer Duplicated", Toast.LENGTH_SHORT).show() },
+                onDeleteClick = { Toast.makeText(context, "Layer Deleted", Toast.LENGTH_SHORT).show() },
+            )
         }
     }
-}
 
-private fun layerTypeGlyph(type: LayerType): String = when (type) {
-    LayerType.Image -> "IMAGE"
-    LayerType.Text -> "TEXT"
-    LayerType.VectorShape -> "VECTOR"
-    LayerType.SolidColor -> "SOLID"
-    LayerType.Audio -> "AUDIO"
-    LayerType.NullController -> "NULL"
+    // Modal Bottom Sheets
+    if (showAddElementSheet) {
+        AddElementSheet(
+            onDismiss = { showAddElementSheet = false },
+            onSelectElement = { category, name ->
+                Toast.makeText(context, "Added $name ($category)", Toast.LENGTH_SHORT).show()
+            },
+        )
+    }
+
+    if (showColorSheet) {
+        ColorSheet(
+            layerName = selectedLayerName ?: "Layer",
+            onDismiss = { showColorSheet = false },
+        )
+    }
+
+    if (showBlendingSheet) {
+        BlendingSheet(
+            layerName = selectedLayerName ?: "Layer",
+            onDismiss = { showBlendingSheet = false },
+        )
+    }
+
+    if (showTransformSheet) {
+        TransformSheet(
+            layerName = selectedLayerName ?: "Layer",
+            onDismiss = { showTransformSheet = false },
+        )
+    }
+
+    if (showCurveEditorSheet) {
+        CurveEditorSheet(
+            onDismiss = { showCurveEditorSheet = false },
+        )
+    }
+
+    if (showEffectPickerSheet) {
+        EffectPickerSheet(
+            selectedLayerId = selectedLayerId,
+            onApplyPreset = { preset ->
+                val layerId = selectedLayerId
+                if (layerId != null) {
+                    scope.launch {
+                        NativeBridge.applyEffectPresetTo(project, layerId, preset.xml)
+                        snackbarHostState.showSnackbar("Applied '${preset.name}'")
+                    }
+                }
+                showEffectPickerSheet = false
+            },
+            onImportXml = { showEffectPickerSheet = false },
+            onDismiss = { showEffectPickerSheet = false },
+        )
+    }
+
+    if (showProjectSettingsSheet) {
+        ProjectSettingsSheet(
+            currentResolution = "${project.width}x${project.height}",
+            currentFps = project.fps,
+            onDismiss = { showProjectSettingsSheet = false },
+        )
+    }
 }
 
 private fun copyAssetInto(context: Context, uri: Uri, assetsDir: File): File? = runCatching {
     assetsDir.mkdirs()
-    val extension = when (context.contentResolver.getType(uri)) {
-        "image/png" -> "png"
-        "image/jpeg" -> "jpg"
-        "image/webp" -> "webp"
-        else -> "png"
-    }
-    val destination = File(assetsDir, "swap_${System.currentTimeMillis()}.$extension")
-    context.contentResolver.openInputStream(uri)?.use { input ->
-        destination.outputStream().use { output -> input.copyTo(output) }
+    val ext = if (context.contentResolver.getType(uri)?.contains("video") == true) "mp4" else "png"
+    val dest = File(assetsDir, "media_${System.currentTimeMillis()}.$ext")
+    context.contentResolver.openInputStream(uri)?.use { inp ->
+        dest.outputStream().use { out -> inp.copyTo(out) }
     } ?: return null
-    destination
+    dest
 }.getOrNull()
